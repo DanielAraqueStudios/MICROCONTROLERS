@@ -1,0 +1,552 @@
+<html>
+<body>
+<pre>
+<h1>µVision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: µVision V5.31.0.0
+Copyright (C) 2020 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: paisa danielaraque32@outlook.com, paisa, LIC=----
+ 
+Tool Versions:
+Toolchain:       MDK-Lite  Version: 5.31.0.0
+Toolchain Path:  C:\Keil_v5\ARM\ARMCLANG\Bin
+C Compiler:      ArmClang.exe V6.14
+Assembler:       Armasm.exe V6.14
+Linker/Locator:  ArmLink.exe V6.14
+Library Manager: ArmAr.exe V6.14
+Hex Converter:   FromElf.exe V6.14
+CPU DLL:         SARMCM3.DLL V5.31.0.0
+Dialog DLL:      DCM.DLL V1.17.3.0
+Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.0.7.0
+Dialog DLL:      TCM.DLL V1.46.0.0
+ 
+<h2>Project:</h2>
+C:\Users\danie\OneDrive - unimilitar.edu.co\Documentos\UNIVERSIDADDDDDDDDDDDDDDDDDDDDDDDDDD\MECATRÓNICA\QUINTO SEMESTRE\micros\f411CE\7 segment display\yessss.uvprojx
+Project File Date:  02/09/2025
+
+<h2>Output:</h2>
+*** Using Compiler 'V6.14', folder: 'C:\Keil_v5\ARM\ARMCLANG\Bin'
+Rebuild target 'Target 1'
+assembling startup_stm32f411xe.s...
+main.cpp(8): warning: no previous extern declaration for non-static variable 't' [-Wmissing-variable-declarations]
+int t =10000000;
+    ^
+main.cpp(8): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+int t =10000000;
+^
+main.cpp(14): warning: use of old-style cast [-Wold-style-cast]
+        RCC->AHB1ENR |= (1<<0);
+        ^~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(789): note: expanded from macro 'RCC'
+#define RCC                 ((RCC_TypeDef *) RCC_BASE)
+                             ^               ~~~~~~~~
+main.cpp(19): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->MODER |= 0x1555; 
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(21): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->OTYPER |= 0x0; 
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(23): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->OSPEEDR |= 0x1555; 
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(25): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->PUPDR |= 0xAAA; 
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(11): warning: no previous prototype for function 'configurarPuertoA' [-Wmissing-prototypes]
+void configurarPuertoA(){
+     ^
+main.cpp(11): note: declare 'static' if the function is not intended to be used outside of this translation unit
+void configurarPuertoA(){
+^
+static 
+main.cpp(30): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x8; //Dejo pine 3 en 1
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(29): warning: no previous prototype for function 'letraA' [-Wmissing-prototypes]
+    void letraA() {
+         ^
+main.cpp(29): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraA() {
+    ^
+    static 
+main.cpp(34): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x7C;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(33): warning: no previous prototype for function 'letraB' [-Wmissing-prototypes]
+    void letraB() {
+         ^
+main.cpp(33): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraB() {
+    ^
+    static 
+main.cpp(38): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x39;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(37): warning: no previous prototype for function 'letraC' [-Wmissing-prototypes]
+    void letraC() {
+         ^
+main.cpp(37): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraC() {
+    ^
+    static 
+main.cpp(42): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x3E;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(41): warning: no previous prototype for function 'letraD' [-Wmissing-prototypes]
+    void letraD() {
+         ^
+main.cpp(41): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraD() {
+    ^
+    static 
+main.cpp(46): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x79;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(45): warning: no previous prototype for function 'letraE' [-Wmissing-prototypes]
+    void letraE() {
+         ^
+main.cpp(45): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraE() {
+    ^
+    static 
+main.cpp(50): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = (1<<1) | (1<<2) | (1<<3) ;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(49): warning: no previous prototype for function 'letraF' [-Wmissing-prototypes]
+    void letraF() {
+         ^
+main.cpp(49): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraF() {
+    ^
+    static 
+main.cpp(54): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x3D;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(53): warning: no previous prototype for function 'letraG' [-Wmissing-prototypes]
+    void letraG() {
+         ^
+main.cpp(53): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraG() {
+    ^
+    static 
+main.cpp(58): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = (1<<0) | (1<<3) ;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(57): warning: no previous prototype for function 'letraH' [-Wmissing-prototypes]
+    void letraH() {
+         ^
+main.cpp(57): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraH() {
+    ^
+    static 
+main.cpp(62): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x66; // Dejo pines 1,2,5 y 6 en 1
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(61): warning: no previous prototype for function 'letraI' [-Wmissing-prototypes]
+    void letraI() {
+         ^
+main.cpp(61): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraI() {
+    ^
+    static 
+main.cpp(66): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x71; // Dejo los pines 0, 4, 5 y 6 en 1
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(65): warning: no previous prototype for function 'letraJ' [-Wmissing-prototypes]
+    void letraJ() {
+         ^
+main.cpp(65): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraJ() {
+    ^
+    static 
+main.cpp(70): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x75;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(69): warning: no previous prototype for function 'letraK' [-Wmissing-prototypes]
+    void letraK() {
+         ^
+main.cpp(69): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraK() {
+    ^
+    static 
+main.cpp(74): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x47; // Dejo pines 0,1,2 y 6 en 1
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(73): warning: no previous prototype for function 'letraL' [-Wmissing-prototypes]
+    void letraL() {
+         ^
+main.cpp(73): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraL() {
+    ^
+    static 
+main.cpp(78): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = (1<<3) | (1<<6)  | (1<<5)  | (1<<1) // Dejo pines 0,2,4 y 6 en 1
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(78): error: expected ';' after expression
+        GPIOA->ODR = (1<<3) | (1<<6)  | (1<<5)  | (1<<1) // Dejo pines 0,2,4 y 6 en 1
+                                                        ^
+                                                        ;
+main.cpp(77): warning: no previous prototype for function 'letraM' [-Wmissing-prototypes]
+    void letraM() {
+         ^
+main.cpp(77): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraM() {
+    ^
+    static 
+main.cpp(82): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0xB; //Dejo pines 0,1,3 y 5 en 1
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(81): warning: no previous prototype for function 'letraN' [-Wmissing-prototypes]
+    void letraN() {
+         ^
+main.cpp(81): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraN() {
+    ^
+    static 
+main.cpp(86): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x3F;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(85): warning: no previous prototype for function 'letraO' [-Wmissing-prototypes]
+    void letraO() {
+         ^
+main.cpp(85): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraO() {
+    ^
+    static 
+main.cpp(90): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR =   (1<<3) | | (1<<2) ;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(90): error: expected expression
+        GPIOA->ODR =   (1<<3) | | (1<<2) ;
+                                ^
+main.cpp(89): warning: no previous prototype for function 'letraP' [-Wmissing-prototypes]
+    void letraP() {
+         ^
+main.cpp(89): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraP() {
+    ^
+    static 
+main.cpp(94): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x3F;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(93): warning: no previous prototype for function 'letraQ' [-Wmissing-prototypes]
+    void letraQ() {
+         ^
+main.cpp(93): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraQ() {
+    ^
+    static 
+main.cpp(98): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x50;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(97): warning: no previous prototype for function 'letraR' [-Wmissing-prototypes]
+    void letraR() {
+         ^
+main.cpp(97): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraR() {
+    ^
+    static 
+main.cpp(102): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x6D;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(101): warning: no previous prototype for function 'letraS' [-Wmissing-prototypes]
+    void letraS() {
+         ^
+main.cpp(101): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraS() {
+    ^
+    static 
+main.cpp(106): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x78;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(105): warning: no previous prototype for function 'letraT' [-Wmissing-prototypes]
+    void letraT() {
+         ^
+main.cpp(105): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraT() {
+    ^
+    static 
+main.cpp(110): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x63; // Dejo pines 0,1,5,6 en 1
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(109): warning: no previous prototype for function 'letraU' [-Wmissing-prototypes]
+    void letraU() {
+         ^
+main.cpp(109): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraU() {
+    ^
+    static 
+main.cpp(114): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->ODR = 0x3E;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(113): warning: no previous prototype for function 'letraV' [-Wmissing-prototypes]
+    void letraV() {
+         ^
+main.cpp(113): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void letraV() {
+    ^
+    static 
+main.cpp(121): warning: no previous prototype for function 'timeA' [-Wmissing-prototypes]
+                void  timeA(){
+                      ^
+main.cpp(121): note: declare 'static' if the function is not intended to be used outside of this translation unit
+                void  timeA(){
+                ^
+                static 
+main.cpp(132): warning: no previous prototype for function 'timeB' [-Wmissing-prototypes]
+        void  timeB(){
+              ^
+main.cpp(132): note: declare 'static' if the function is not intended to be used outside of this translation unit
+        void  timeB(){
+        ^
+        static 
+main.cpp(143): warning: no previous prototype for function 'timeC' [-Wmissing-prototypes]
+        void  timeC(){
+              ^
+main.cpp(143): note: declare 'static' if the function is not intended to be used outside of this translation unit
+        void  timeC(){
+        ^
+        static 
+main.cpp(153): warning: no previous prototype for function 'timeD' [-Wmissing-prototypes]
+        void  timeD(){
+              ^
+main.cpp(153): note: declare 'static' if the function is not intended to be used outside of this translation unit
+        void  timeD(){
+        ^
+        static 
+main.cpp(160): warning: no previous prototype for function 'timeE' [-Wmissing-prototypes]
+     void  timeE (){
+           ^
+main.cpp(160): note: declare 'static' if the function is not intended to be used outside of this translation unit
+     void  timeE (){
+     ^
+     static 
+main.cpp(170): warning: no previous prototype for function 'timeF' [-Wmissing-prototypes]
+    void  timeF(){
+          ^
+main.cpp(170): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeF(){
+    ^
+    static 
+main.cpp(176): warning: no previous prototype for function 'timeG' [-Wmissing-prototypes]
+    void  timeG(){
+          ^
+main.cpp(176): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeG(){
+    ^
+    static 
+main.cpp(182): warning: no previous prototype for function 'timeH' [-Wmissing-prototypes]
+    void  timeH(){
+          ^
+main.cpp(182): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeH(){
+    ^
+    static 
+main.cpp(188): warning: no previous prototype for function 'timeI' [-Wmissing-prototypes]
+    void  timeI(){
+          ^
+main.cpp(188): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeI(){
+    ^
+    static 
+main.cpp(194): warning: no previous prototype for function 'timeJ' [-Wmissing-prototypes]
+    void  timeJ(){
+          ^
+main.cpp(194): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeJ(){
+    ^
+    static 
+main.cpp(200): warning: no previous prototype for function 'timeK' [-Wmissing-prototypes]
+    void  timeK(){
+          ^
+main.cpp(200): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeK(){
+    ^
+    static 
+main.cpp(206): warning: no previous prototype for function 'timeL' [-Wmissing-prototypes]
+    void  timeL(){
+          ^
+main.cpp(206): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeL(){
+    ^
+    static 
+main.cpp(212): warning: no previous prototype for function 'timeM' [-Wmissing-prototypes]
+    void  timeM(){
+          ^
+main.cpp(212): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeM(){
+    ^
+    static 
+main.cpp(218): warning: no previous prototype for function 'timeN' [-Wmissing-prototypes]
+    void  timeN(){
+          ^
+main.cpp(218): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeN(){
+    ^
+    static 
+main.cpp(224): warning: no previous prototype for function 'timeO' [-Wmissing-prototypes]
+    void  timeO(){
+          ^
+main.cpp(224): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeO(){
+    ^
+    static 
+main.cpp(230): warning: no previous prototype for function 'timeP' [-Wmissing-prototypes]
+    void  timeP(){
+          ^
+main.cpp(230): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeP(){
+    ^
+    static 
+main.cpp(236): warning: no previous prototype for function 'timeQ' [-Wmissing-prototypes]
+    void  timeQ(){
+          ^
+main.cpp(236): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeQ(){
+    ^
+    static 
+main.cpp(242): warning: no previous prototype for function 'timeR' [-Wmissing-prototypes]
+    void  timeR(){
+          ^
+main.cpp(242): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeR(){
+    ^
+    static 
+main.cpp(248): warning: no previous prototype for function 'timeS' [-Wmissing-prototypes]
+    void  timeS(){
+          ^
+main.cpp(248): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeS(){
+    ^
+    static 
+main.cpp(254): warning: no previous prototype for function 'timeT' [-Wmissing-prototypes]
+    void  timeT(){
+          ^
+main.cpp(254): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeT(){
+    ^
+    static 
+main.cpp(260): warning: no previous prototype for function 'timeU' [-Wmissing-prototypes]
+    void  timeU(){
+          ^
+main.cpp(260): note: declare 'static' if the function is not intended to be used outside of this translation unit
+    void  timeU(){
+    ^
+    static 
+72 warnings and 2 errors generated.
+compiling main.cpp...
+compiling system_stm32f4xx.c...
+".\Objects\yessss.axf" - 2 Error(s), 72 Warning(s).
+
+<h2>Software Packages used:</h2>
+
+Package Vendor: ARM
+                http://www.keil.com/pack/ARM.CMSIS.5.7.0.pack
+                ARM.CMSIS.5.7.0
+                CMSIS (Cortex Microcontroller Software Interface Standard)
+   * Component: CORE Version: 5.4.0
+
+Package Vendor: Keil
+                https://www.keil.com/pack/Keil.STM32F4xx_DFP.2.17.1.pack
+                Keil.STM32F4xx_DFP.2.17.1
+                STMicroelectronics STM32F4 Series Device Support, Drivers and Examples
+   * Component: Startup Version: 2.6.3
+
+<h2>Collection of Component include folders:</h2>
+  .\RTE\_Target_1
+  C:\Users\danie\AppData\Local\Arm\Packs\ARM\CMSIS\5.7.0\CMSIS\Core\Include
+  C:\Users\danie\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.17.1\Drivers\CMSIS\Device\ST\STM32F4xx\Include
+
+<h2>Collection of Component Files used:</h2>
+
+   * Component: ARM::CMSIS:CORE:5.4.0
+
+   * Component: Keil::Device:Startup:2.6.3
+      Include file:  Drivers\CMSIS\Device\ST\STM32F4xx\Include\stm32f4xx.h
+      Source file:   MDK\Device\Source\ARM\STM32F411xx_OPT.s
+      Source file:   MDK\Device\Source\ARM\STM32F4xx_OTP.s
+      Source file:   Drivers\CMSIS\Device\ST\STM32F4xx\Source\Templates\arm\startup_stm32f411xe.s
+      Source file:   Drivers\CMSIS\Device\ST\STM32F4xx\Source\Templates\system_stm32f4xx.c
+Target not created.
+Build Time Elapsed:  00:00:05
+</pre>
+</body>
+</html>
