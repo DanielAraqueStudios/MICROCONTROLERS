@@ -21,317 +21,199 @@ Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.0.7.0
 Dialog DLL:      TCM.DLL V1.46.0.0
  
 <h2>Project:</h2>
-C:\Users\danie\OneDrive - unimilitar.edu.co\Documentos\UNIVERSIDADDDDDDDDDDDDDDDDDDDDDDDDDD\MECATRÓNICA\QUINTO SEMESTRE\micros\f767\A AN B LETTERS 7 SEGMENT\AAAAAA.uvprojx
-Project File Date:  02/08/2025
+C:\Users\danie\OneDrive - unimilitar.edu.co\Documentos\UNIVERSIDADDDDDDDDDDDDDDDDDDDDDDDDDD\MECATRÓNICA\QUINTO SEMESTRE\MICROCONTROLERS\micros\f767\A AN B LETTERS 7 SEGMENT\AAAAAA.uvprojx
+Project File Date:  02/20/2025
 
 <h2>Output:</h2>
 *** Using Compiler 'V6.14', folder: 'C:\Keil_v5\ARM\ARMCLANG\Bin'
-Rebuild target 'Target 1'
-assembling startup_stm32f767xx.s...
-compiling system_stm32f7xx.c...
-main.cpp(8): warning: no previous extern declaration for non-static variable 't' [-Wmissing-variable-declarations]
+Build target 'Target 1'
+main.cpp(10): warning: no previous extern declaration for non-static variable 't' [-Wmissing-variable-declarations]
 int t =1000000;
     ^
-main.cpp(8): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+main.cpp(10): note: declare 'static' if the variable is not intended to be used outside of this translation unit
 int t =1000000;
 ^
-main.cpp(14): warning: use of old-style cast [-Wold-style-cast]
-        RCC->AHB1ENR |= (1<<0);
+main.cpp(16): warning: use of old-style cast [-Wold-style-cast]
+        RCC->AHB1ENR |= (1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<4)|(1<<5)|(1<<6); // Habilito el reloj para los puertos A, B y C y D y E y F
         ^~~
 C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1546): note: expanded from macro 'RCC'
 #define RCC                 ((RCC_TypeDef *) RCC_BASE)
                              ^               ~~~~~~~~
-main.cpp(19): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->MODER |= 0x1555; 
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
 main.cpp(21): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->OTYPER |= 0x0; 
+        GPIOA->MODER |=(1<<0); 
         ^~~~~
 C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
 #define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
                              ^                ~~~~~~~~~~
 main.cpp(23): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->OSPEEDR |= 0x1555; 
+        GPIOA->OTYPER |=(1<<0); 
         ^~~~~
 C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
 #define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
                              ^                ~~~~~~~~~~
 main.cpp(25): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->PUPDR |= 0xAAA; 
+        GPIOA->OSPEEDR |= (1<<0); 
         ^~~~~
 C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
 #define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
                              ^                ~~~~~~~~~~
-main.cpp(11): warning: no previous prototype for function 'configurarPuertoA' [-Wmissing-prototypes]
-void configurarPuertoA(){
+main.cpp(27): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->PUPDR | = (1<<1); 
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(27): error: expected expression
+        GPIOA->PUPDR | = (1<<1); 
+                       ^
+main.cpp(30): warning: use of old-style cast [-Wold-style-cast]
+        GPIOB->MODER |= (1<<0)|(1<<4)|(1<<12)|(1<<22)|(1<<20);  
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1535): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(31): warning: use of old-style cast [-Wold-style-cast]
+        GPIOB->OTYPER |= (1<<0);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1535): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(32): warning: use of old-style cast [-Wold-style-cast]
+        GPIOB->OSPEEDR |= (1<<0)|(1<<4)|(1<<12)|(1<<22);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1535): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(33): warning: use of old-style cast [-Wold-style-cast]
+        GPIOB->PUPDR |=  (1<<1)|(1<<5)|(1<<13)|(1<<23)|(1<<21);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1535): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(36): warning: use of old-style cast [-Wold-style-cast]
+        GPIOC->MODER |= (1<<4);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1536): note: expanded from macro 'GPIOC'
+#define GPIOC               ((GPIO_TypeDef *) GPIOC_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(37): warning: use of old-style cast [-Wold-style-cast]
+        GPIOC->OTYPER |= (1<<0);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1536): note: expanded from macro 'GPIOC'
+#define GPIOC               ((GPIO_TypeDef *) GPIOC_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(38): warning: use of old-style cast [-Wold-style-cast]
+        GPIOC->OSPEEDR |= (1<<4);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1536): note: expanded from macro 'GPIOC'
+#define GPIOC               ((GPIO_TypeDef *) GPIOC_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(39): warning: use of old-style cast [-Wold-style-cast]
+        GPIOC->PUPDR |= (1<<5);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1536): note: expanded from macro 'GPIOC'
+#define GPIOC               ((GPIO_TypeDef *) GPIOC_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(42): warning: use of old-style cast [-Wold-style-cast]
+        GPIOD->MODER |=(1<<26)|(1<<24) |(1<<22);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1537): note: expanded from macro 'GPIOD'
+#define GPIOD               ((GPIO_TypeDef *) GPIOD_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(43): warning: use of old-style cast [-Wold-style-cast]
+        GPIOD->OTYPER |= (1<<0);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1537): note: expanded from macro 'GPIOD'
+#define GPIOD               ((GPIO_TypeDef *) GPIOD_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(44): warning: use of old-style cast [-Wold-style-cast]
+        GPIOD->OSPEEDR |=(1<<26)|(1<<24) |(1<<22) ;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1537): note: expanded from macro 'GPIOD'
+#define GPIOD               ((GPIO_TypeDef *) GPIOD_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(45): warning: use of old-style cast [-Wold-style-cast]
+        GPIOD->PUPDR |= (1<<27)|(1<<25) |(1<<23);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1537): note: expanded from macro 'GPIOD'
+#define GPIOD               ((GPIO_TypeDef *) GPIOD_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(48): warning: use of old-style cast [-Wold-style-cast]
+        GPIOE->MODER |= (1<<0)|(1<<28)|(1<<30)|(1<<4);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1538): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(49): warning: use of old-style cast [-Wold-style-cast]
+        GPIOE->OTYPER |= (1<<0);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1538): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(50): warning: use of old-style cast [-Wold-style-cast]
+        GPIOE->OSPEEDR |= (1<<0)|(1<<28)|(1<<30);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1538): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(51): warning: use of old-style cast [-Wold-style-cast]
+        GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1538): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(51): warning: signed shift result (0x80000000) sets the sign bit of the shift expression's type ('int') and becomes negative [-Wshift-sign-overflow]
+        GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5);
+                                        ~^ ~~
+main.cpp(51): warning: implicit conversion changes signedness: 'int' to 'unsigned int' [-Wsign-conversion]
+        GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5);
+                     ~~ ~~~~~~~~~~~~~~~~~~~~~~^~~~~~~
+main.cpp(54): warning: use of old-style cast [-Wold-style-cast]
+        GPIOF->MODER |=(1<<8);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1539): note: expanded from macro 'GPIOF'
+#define GPIOF               ((GPIO_TypeDef *) GPIOF_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(55): warning: use of old-style cast [-Wold-style-cast]
+        GPIOF->OTYPER |= (1<<0);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1539): note: expanded from macro 'GPIOF'
+#define GPIOF               ((GPIO_TypeDef *) GPIOF_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(56): warning: use of old-style cast [-Wold-style-cast]
+        GPIOF->OSPEEDR |=(1<<8) ;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1539): note: expanded from macro 'GPIOF'
+#define GPIOF               ((GPIO_TypeDef *) GPIOF_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(57): warning: use of old-style cast [-Wold-style-cast]
+        GPIOF->PUPDR|= (1<<9);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1539): note: expanded from macro 'GPIOF'
+#define GPIOF               ((GPIO_TypeDef *) GPIOF_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(13): warning: no previous prototype for function 'GPIO_MATRIZ' [-Wmissing-prototypes]
+void GPIO_MATRIZ(){
      ^
-main.cpp(11): note: declare 'static' if the function is not intended to be used outside of this translation unit
-void configurarPuertoA(){
+main.cpp(13): note: declare 'static' if the function is not intended to be used outside of this translation unit
+void GPIO_MATRIZ(){
 ^
 static 
-main.cpp(30): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x71; // Dejo los pines 0, 4, 5 y 6 en 1
+main.cpp(72): warning: use of old-style cast [-Wold-style-cast]
+        GPIOE->ODR =(1<<2);
         ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1538): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
                              ^                ~~~~~~~~~~
-main.cpp(29): warning: no previous prototype for function 'letraJ' [-Wmissing-prototypes]
-    void letraJ() {
-         ^
-main.cpp(29): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraJ() {
-    ^
-    static 
-main.cpp(34): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x63; // Dejo pines 0,1,5,6 en 1
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+main.cpp(73): warning: use of old-style cast [-Wold-style-cast]
+                                GPIOB->ODR =(1<<0);
+                                ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1535): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
                              ^                ~~~~~~~~~~
-main.cpp(33): warning: no previous prototype for function 'letraU' [-Wmissing-prototypes]
-    void letraU() {
-         ^
-main.cpp(33): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraU() {
-    ^
-    static 
-main.cpp(38): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x47; // Dejo pines 0,1,2 y 6 en 1
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(37): warning: no previous prototype for function 'letraL' [-Wmissing-prototypes]
-    void letraL() {
-         ^
-main.cpp(37): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraL() {
-    ^
-    static 
-main.cpp(42): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x66; // Dejo pines 1,2,5 y 6 en 1
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(41): warning: no previous prototype for function 'letraI' [-Wmissing-prototypes]
-    void letraI() {
-         ^
-main.cpp(41): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraI() {
-    ^
-    static 
-main.cpp(46): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x8; //Dejo pine 3 en 1
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(45): warning: no previous prototype for function 'letraA' [-Wmissing-prototypes]
-    void letraA() {
-         ^
-main.cpp(45): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraA() {
-    ^
-    static 
-main.cpp(50): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0xB; //Dejo pines 0,1,3 y 5 en 1
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(49): warning: no previous prototype for function 'letraN' [-Wmissing-prototypes]
-    void letraN() {
-         ^
-main.cpp(49): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraN() {
-    ^
-    static 
-main.cpp(54): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x3E;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(53): warning: no previous prototype for function 'letraD' [-Wmissing-prototypes]
-    void letraD() {
-         ^
-main.cpp(53): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraD() {
-    ^
-    static 
-main.cpp(58): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x50;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(57): warning: no previous prototype for function 'letraR' [-Wmissing-prototypes]
-    void letraR() {
-         ^
-main.cpp(57): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraR() {
-    ^
-    static 
-main.cpp(62): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x79;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(61): warning: no previous prototype for function 'letraE' [-Wmissing-prototypes]
-    void letraE() {
-         ^
-main.cpp(61): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraE() {
-    ^
-    static 
-main.cpp(66): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x6D;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(65): warning: no previous prototype for function 'letraS' [-Wmissing-prototypes]
-    void letraS() {
-         ^
-main.cpp(65): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraS() {
-    ^
-    static 
-main.cpp(70): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x3F;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(69): warning: no previous prototype for function 'letraO' [-Wmissing-prototypes]
-    void letraO() {
-         ^
-main.cpp(69): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraO() {
-    ^
-    static 
-main.cpp(74): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x3D;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(73): warning: no previous prototype for function 'letraG' [-Wmissing-prototypes]
-    void letraG() {
-         ^
-main.cpp(73): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraG() {
-    ^
-    static 
-main.cpp(78): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x39;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(77): warning: no previous prototype for function 'letraC' [-Wmissing-prototypes]
-    void letraC() {
-         ^
-main.cpp(77): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraC() {
-    ^
-    static 
-main.cpp(82): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x3F;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(81): warning: no previous prototype for function 'letraQ' [-Wmissing-prototypes]
-    void letraQ() {
-         ^
-main.cpp(81): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraQ() {
-    ^
-    static 
-main.cpp(86): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x78;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(85): warning: no previous prototype for function 'letraT' [-Wmissing-prototypes]
-    void letraT() {
-         ^
-main.cpp(85): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraT() {
-    ^
-    static 
-main.cpp(90): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x75;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(89): warning: no previous prototype for function 'letraK' [-Wmissing-prototypes]
-    void letraK() {
-         ^
-main.cpp(89): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraK() {
-    ^
-    static 
-main.cpp(94): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x3E;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(93): warning: no previous prototype for function 'letraV' [-Wmissing-prototypes]
-    void letraV() {
-         ^
-main.cpp(93): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraV() {
-    ^
-    static 
-main.cpp(98): warning: use of old-style cast [-Wold-style-cast]
-        GPIOA->ODR = 0x7C;
-        ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-main.cpp(97): warning: no previous prototype for function 'letraB' [-Wmissing-prototypes]
-    void letraB() {
-         ^
-main.cpp(97): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void letraB() {
-    ^
-    static 
-main.cpp(102): warning: no previous prototype for function 'delay' [-Wmissing-prototypes]
-    void delay(int milliseconds) {
-         ^
-main.cpp(102): note: declare 'static' if the function is not intended to be used outside of this translation unit
-    void delay(int milliseconds) {
-    ^
-    static 
-main.cpp(109): warning: no previous prototype for function 'timeA' [-Wmissing-prototypes]
-                void  timeA(){
-                      ^
-main.cpp(109): note: declare 'static' if the function is not intended to be used outside of this translation unit
-                void  timeA(){
-                ^
-                static 
-main.cpp(130): warning: use of old-style cast [-Wold-style-cast]
-                                                GPIOA->ODR = (1<<0) | (1<<1);
-                                                ^~~~~
-C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F7xx_DFP/2.13.0/Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f767xx.h(1534): note: expanded from macro 'GPIOA'
-#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
-                             ^                ~~~~~~~~~~
-46 warnings generated.
+31 warnings and 1 error generated.
 compiling main.cpp...
-linking...
-Program Size: Code=560 RO-data=536 RW-data=4 ZI-data=1632  
-FromELF: creating hex file...
-".\Objects\AAAAAA.axf" - 0 Error(s), 46 Warning(s).
+".\Objects\AAAAAA.axf" - 1 Error(s), 31 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -357,12 +239,13 @@ Package Vendor: Keil
    * Component: ARM::CMSIS:CORE:5.4.0
 
    * Component: Keil::Device:Startup:1.2.5
-      Source file:   MDK\Device\Source\ARM\STM32F76x_77x_OPT.s
-      Source file:   Drivers\CMSIS\Device\ST\STM32F7xx\Source\Templates\arm\startup_stm32f767xx.s
       Include file:  Drivers\CMSIS\Device\ST\STM32F7xx\Include\stm32f7xx.h
       Source file:   MDK\Device\Source\ARM\STM32F76x_77x_OTP.s
+      Source file:   MDK\Device\Source\ARM\STM32F76x_77x_OPT.s
+      Source file:   Drivers\CMSIS\Device\ST\STM32F7xx\Source\Templates\arm\startup_stm32f767xx.s
       Source file:   Drivers\CMSIS\Device\ST\STM32F7xx\Source\Templates\system_stm32f7xx.c
-Build Time Elapsed:  00:00:04
+Target not created.
+Build Time Elapsed:  00:00:01
 </pre>
 </body>
 </html>

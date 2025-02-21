@@ -21,13 +21,196 @@ Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.0.7.0
 Dialog DLL:      TCM.DLL V1.46.0.0
  
 <h2>Project:</h2>
-C:\Users\danie\OneDrive - unimilitar.edu.co\Documentos\UNIVERSIDADDDDDDDDDDDDDDDDDDDDDDDDDD\MECATRÓNICA\QUINTO SEMESTRE\micros\f411CE\7 segment new\main.uvprojx
+C:\Users\danie\OneDrive - unimilitar.edu.co\Documentos\UNIVERSIDADDDDDDDDDDDDDDDDDDDDDDDDDD\MECATRÓNICA\QUINTO SEMESTRE\MICROCONTROLERS\micros\f411CE\7 segment new\main.uvprojx
 Project File Date:  02/12/2025
 
 <h2>Output:</h2>
 *** Using Compiler 'V6.14', folder: 'C:\Keil_v5\ARM\ARMCLANG\Bin'
-Build target 'Target 1'
-".\Objects\main.afx" - 0 Error(s), 0 Warning(s).
+Rebuild target 'Target 1'
+assembling startup_stm32f411xe.s...
+main.cpp(8): warning: no previous extern declaration for non-static variable 't' [-Wmissing-variable-declarations]
+int t =1000000;
+    ^
+main.cpp(8): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+int t =1000000;
+^
+main.cpp(14): warning: use of old-style cast [-Wold-style-cast]
+        RCC->AHB1ENR |= (1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<4)|(1<<5)|(1<<6); // Habilito el reloj para los puertos A, B y C y D y E y F
+        ^~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(789): note: expanded from macro 'RCC'
+#define RCC                 ((RCC_TypeDef *) RCC_BASE)
+                             ^               ~~~~~~~~
+main.cpp(19): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->MODER |=(1<<0); 
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(21): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->OTYPER |=(1<<0); 
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(23): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->OSPEEDR |= (1<<0); 
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(25): warning: use of old-style cast [-Wold-style-cast]
+        GPIOA->PUPDR | = (1<<1); 
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(782): note: expanded from macro 'GPIOA'
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(25): error: expected expression
+        GPIOA->PUPDR | = (1<<1); 
+                       ^
+main.cpp(28): warning: use of old-style cast [-Wold-style-cast]
+        GPIOB->MODER |= (1<<0)|(1<<4)|(1<<12)|(1<<22)|(1<<20);  
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(783): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(29): warning: use of old-style cast [-Wold-style-cast]
+        GPIOB->OTYPER |= (1<<0);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(783): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(30): warning: use of old-style cast [-Wold-style-cast]
+        GPIOB->OSPEEDR |= (1<<0)|(1<<4)|(1<<12)|(1<<22);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(783): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(31): warning: use of old-style cast [-Wold-style-cast]
+        GPIOB->PUPDR |=  (1<<1)|(1<<5)|(1<<13)|(1<<23)|(1<<21);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(783): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(34): warning: use of old-style cast [-Wold-style-cast]
+        GPIOC->MODER |= (1<<4);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(784): note: expanded from macro 'GPIOC'
+#define GPIOC               ((GPIO_TypeDef *) GPIOC_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(35): warning: use of old-style cast [-Wold-style-cast]
+        GPIOC->OTYPER |= (1<<0);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(784): note: expanded from macro 'GPIOC'
+#define GPIOC               ((GPIO_TypeDef *) GPIOC_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(36): warning: use of old-style cast [-Wold-style-cast]
+        GPIOC->OSPEEDR |= (1<<4);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(784): note: expanded from macro 'GPIOC'
+#define GPIOC               ((GPIO_TypeDef *) GPIOC_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(37): warning: use of old-style cast [-Wold-style-cast]
+        GPIOC->PUPDR |= (1<<5);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(784): note: expanded from macro 'GPIOC'
+#define GPIOC               ((GPIO_TypeDef *) GPIOC_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(40): warning: use of old-style cast [-Wold-style-cast]
+        GPIOD->MODER |=(1<<26)|(1<<24) |(1<<22);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(785): note: expanded from macro 'GPIOD'
+#define GPIOD               ((GPIO_TypeDef *) GPIOD_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(41): warning: use of old-style cast [-Wold-style-cast]
+        GPIOD->OTYPER |= (1<<0);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(785): note: expanded from macro 'GPIOD'
+#define GPIOD               ((GPIO_TypeDef *) GPIOD_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(42): warning: use of old-style cast [-Wold-style-cast]
+        GPIOD->OSPEEDR |=(1<<26)|(1<<24) |(1<<22) ;
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(785): note: expanded from macro 'GPIOD'
+#define GPIOD               ((GPIO_TypeDef *) GPIOD_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(43): warning: use of old-style cast [-Wold-style-cast]
+        GPIOD->PUPDR |= (1<<27)|(1<<25) |(1<<23);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(785): note: expanded from macro 'GPIOD'
+#define GPIOD               ((GPIO_TypeDef *) GPIOD_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(46): warning: use of old-style cast [-Wold-style-cast]
+        GPIOE->MODER |= (1<<0)|(1<<28)|(1<<30)|(1<<4);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(786): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(47): warning: use of old-style cast [-Wold-style-cast]
+        GPIOE->OTYPER |= (1<<0);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(786): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(48): warning: use of old-style cast [-Wold-style-cast]
+        GPIOE->OSPEEDR |= (1<<0)|(1<<28)|(1<<30);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(786): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(49): warning: use of old-style cast [-Wold-style-cast]
+        GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5);
+        ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(786): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(49): warning: signed shift result (0x80000000) sets the sign bit of the shift expression's type ('int') and becomes negative [-Wshift-sign-overflow]
+        GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5);
+                                        ~^ ~~
+main.cpp(49): warning: implicit conversion changes signedness: 'int' to 'unsigned int' [-Wsign-conversion]
+        GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5);
+                     ~~ ~~~~~~~~~~~~~~~~~~~~~~^~~~~~~
+main.cpp(52): error: use of undeclared identifier 'GPIOF'
+        GPIOF->MODER |=(1<<8) ;
+        ^
+main.cpp(53): error: use of undeclared identifier 'GPIOF'
+        GPIOF->OTYPER |= (1<<0);
+        ^
+main.cpp(54): error: use of undeclared identifier 'GPIOF'
+        GPIOF->OSPEEDR |=(1<<8) ;
+        ^
+main.cpp(55): error: use of undeclared identifier 'GPIOF'
+        GPIOF->PUPDR|= (1<<9);
+        ^
+main.cpp(11): warning: no previous prototype for function 'GPIO_MATRIZ' [-Wmissing-prototypes]
+void GPIO_MATRIZ(){
+     ^
+main.cpp(11): note: declare 'static' if the function is not intended to be used outside of this translation unit
+void GPIO_MATRIZ(){
+^
+static 
+main.cpp(66): warning: use of old-style cast [-Wold-style-cast]
+    GPIOE->ODR =(1<<2);
+    ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(786): note: expanded from macro 'GPIOE'
+#define GPIOE               ((GPIO_TypeDef *) GPIOE_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(67): warning: use of old-style cast [-Wold-style-cast]
+    GPIOB->ODR =(1<<0);
+    ^~~~~
+C:/Users/danie/AppData/Local/Arm/Packs/Keil/STM32F4xx_DFP/2.17.1/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h(783): note: expanded from macro 'GPIOB'
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+                             ^                ~~~~~~~~~~
+main.cpp(64): warning: no previous prototype for function 'turn_on' [-Wmissing-prototypes]
+void turn_on(){
+     ^
+main.cpp(64): note: declare 'static' if the function is not intended to be used outside of this translation unit
+void turn_on(){
+^
+static 
+28 warnings and 5 errors generated.
+compiling main.cpp...
+compiling system_stm32f4xx.c...
+".\Objects\main.afx" - 5 Error(s), 28 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -53,12 +236,13 @@ Package Vendor: Keil
    * Component: ARM::CMSIS:CORE:5.4.0
 
    * Component: Keil::Device:Startup:2.6.3
-      Source file:   Drivers\CMSIS\Device\ST\STM32F4xx\Source\Templates\arm\startup_stm32f411xe.s
       Include file:  Drivers\CMSIS\Device\ST\STM32F4xx\Include\stm32f4xx.h
       Source file:   MDK\Device\Source\ARM\STM32F4xx_OTP.s
       Source file:   MDK\Device\Source\ARM\STM32F411xx_OPT.s
+      Source file:   Drivers\CMSIS\Device\ST\STM32F4xx\Source\Templates\arm\startup_stm32f411xe.s
       Source file:   Drivers\CMSIS\Device\ST\STM32F4xx\Source\Templates\system_stm32f4xx.c
-Build Time Elapsed:  00:00:00
+Target not created.
+Build Time Elapsed:  00:00:01
 </pre>
 </body>
 </html>

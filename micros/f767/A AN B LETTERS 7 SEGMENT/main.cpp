@@ -1,6 +1,8 @@
+
+//matix 8x8 test 1
+
 #include <stdio.h>
 #include <stm32f7xx.h>
-
 
 
 
@@ -8,130 +10,68 @@
 int t =1000000;
 
 
-void configurarPuertoA(){
+void GPIO_MATRIZ(){
 
-    //---------Para configurar el reloj del GPIOA
-        RCC->AHB1ENR |= (1<<0);
+   
+        RCC->AHB1ENR |= (1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<4)|(1<<5)|(1<<6); // Habilito el reloj para los puertos A, B y C y D y E y F
     
     //---------Para configurar el pin 5 de la GPIOA como salida 
         
-        // Configuro los pines 0 a 6 como salida
-        GPIOA->MODER |= 0x1555; 
-        // Configuro los valores en push-pull (Es el de defecto gg)
-        GPIOA->OTYPER |= 0x0; 
-        // Configuro los pines 0 a 6 como velocidad media (01)
-        GPIOA->OSPEEDR |= 0x1555; 
-        // Configuro los pines en pull up
-        GPIOA->PUPDR |= 0xAAA; 
-    }
-    
-    
-    void letraJ() {
-        GPIOA->ODR = 0x71; // Dejo los pines 0, 4, 5 y 6 en 1
-    }
-    
-    void letraU() {
-        GPIOA->ODR = 0x63; // Dejo pines 0,1,5,6 en 1
-    }
-    
-    void letraL() {
-        GPIOA->ODR = 0x47; // Dejo pines 0,1,2 y 6 en 1
-    }
-    
-    void letraI() {
-        GPIOA->ODR = 0x66; // Dejo pines 1,2,5 y 6 en 1
-    }
-    
-    void letraA() {
-        GPIOA->ODR = 0x8; //Dejo pine 3 en 1
-    }
-    
-    void letraN() {
-        GPIOA->ODR = 0xB; //Dejo pines 0,1,3 y 5 en 1
-    }
-    
-    void letraD() {
-        GPIOA->ODR = 0x3E;
-    }
-    
-    void letraR() {
-        GPIOA->ODR = 0x50;
-    }
-    
-    void letraE() {
-        GPIOA->ODR = 0x79;
-    }
-    
-    void letraS() {
-        GPIOA->ODR = 0x6D;
-    }
-    
-    void letraO() {
-        GPIOA->ODR = 0x3F;
-    }
-    
-    void letraG() {
-        GPIOA->ODR = 0x3D;
-    }
-    
-    void letraC() {
-        GPIOA->ODR = 0x39;
-    }
-    
-    void letraQ() {
-        GPIOA->ODR = 0x3F;
-    }
-    
-    void letraT() {
-        GPIOA->ODR = 0x78;
-    }
-    
-    void letraK() {
-        GPIOA->ODR = 0x75;
-    }
-    
-    void letraV() {
-        GPIOA->ODR = 0x3E;
-    }
-    
-    void letraB() {
-        GPIOA->ODR = 0x7C;
-    }
-    
-    
-    void delay(int milliseconds) {
-        volatile int count = milliseconds * 1000;
-        while (count--);
-    }
-		
-		
-		
-		void  timeA(){
-			
-			for (int i=0; i<t; i++){
-				
-				letraA();
-				
-				
-				
-			}				
-		}
-		
 
-    int main() {
-        //------Configuro puerto A------
-        configurarPuertoA();
+        GPIOA->MODER |=(1<<0); 
 
-        while(1){
-           
-					timeA();
-					
-					for (int i=0;i<1000000;i++){
-						GPIOA->ODR = (1<<0) | (1<<1);
-					
-					}
-					
-					
+        GPIOA->OTYPER |=(1<<0); 
+
+        GPIOA->OSPEEDR |= (1<<0); 
+
+        GPIOA->PUPDR | = (1<<1); 
+
+    //---------Para configurar el pin 10 de la GPIOB como salida
+        GPIOB->MODER |= (1<<0)|(1<<4)|(1<<12)|(1<<22)|(1<<20);  
+        GPIOB->OTYPER |= (1<<0);
+        GPIOB->OSPEEDR |= (1<<0)|(1<<4)|(1<<12)|(1<<22);
+        GPIOB->PUPDR |=  (1<<1)|(1<<5)|(1<<13)|(1<<23)|(1<<21);
+
+    //---------Para configurar el pin 15 de la GPIOC como salida
+        GPIOC->MODER |= (1<<4);
+        GPIOC->OTYPER |= (1<<0);
+        GPIOC->OSPEEDR |= (1<<4);
+        GPIOC->PUPDR |= (1<<5);
+
+    //---------Para configurar el pin 0 de la GPIOD como salida
+        GPIOD->MODER |=(1<<26)|(1<<24) |(1<<22);
+        GPIOD->OTYPER |= (1<<0);
+        GPIOD->OSPEEDR |=(1<<26)|(1<<24) |(1<<22) ;
+        GPIOD->PUPDR |= (1<<27)|(1<<25) |(1<<23);
+
+    //---------Para configurar el pin 0 de la GPIOE como salida
+        GPIOE->MODER |= (1<<0)|(1<<28)|(1<<30)|(1<<4);
+        GPIOE->OTYPER |= (1<<0);
+        GPIOE->OSPEEDR |= (1<<0)|(1<<28)|(1<<30);
+        GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5);
+
+    //---------Para configurar el pin 0 de la GPIOF como salida
+        GPIOF->MODER |=(1<<8);
+        GPIOF->OTYPER |= (1<<0);
+        GPIOF->OSPEEDR |=(1<<8) ;
+        GPIOF->PUPDR|= (1<<9);
+
+
+
+        //CONFIGURE LEDS OUTPUT
+
+        // B10 B12 B13 B14 B15 A8 A9 A10 A11 A12 A15 B3 B4 B5 B6 B7 B9 C15 C14
+    }
+
+
+
+int main() {        
+    
+        while(1) {
+            
+        GPIOE->ODR =(1<<2);
+				GPIOB->ODR =(1<<0);
+
+            
         }
-    
-			}
+    }

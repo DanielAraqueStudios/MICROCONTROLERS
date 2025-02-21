@@ -1,5 +1,8 @@
+
+//matix 8x8 test 1
+
 #include <stdio.h>
-#include <stm32f4xx.h>
+#include <stm32f7xx.h>
 
 
 
@@ -22,7 +25,7 @@ void GPIO_MATRIZ(){
 
         GPIOA->OSPEEDR |= (1<<0); 
 
-        GPIOA->PUPDR | = (1<<1); 
+        GPIOA->PUPDR |= (1<<1); 
 
     //---------Para configurar el pin 10 de la GPIOB como salida
         GPIOB->MODER |= (1<<0)|(1<<4)|(1<<12)|(1<<22)|(1<<20);  
@@ -49,7 +52,7 @@ void GPIO_MATRIZ(){
         GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5);
 
     //---------Para configurar el pin 0 de la GPIOF como salida
-        GPIOF->MODER |=(1<<8) ;
+        GPIOF->MODER |=(1<<8);
         GPIOF->OTYPER |= (1<<0);
         GPIOF->OSPEEDR |=(1<<8) ;
         GPIOF->PUPDR|= (1<<9);
@@ -61,19 +64,16 @@ void GPIO_MATRIZ(){
         // B10 B12 B13 B14 B15 A8 A9 A10 A11 A12 A15 B3 B4 B5 B6 B7 B9 C15 C14
     }
 
-void turn_on(){
-
-    GPIOE->ODR =(1<<2);
-    GPIOB->ODR =(1<<0);
-}
 
 
 int main() {        
     
         while(1) {
             
-            turn_on();
-
+            GPIO_MATRIZ();
+            GPIOE->ODR = (1<<2);
+            GPIOB->ODR = (0<<1);
+                
             
         }
     }
