@@ -52,7 +52,7 @@ int main(){
         PORTS();
 
         ADC1->CR2|=(1<<0); //start conversion
-        while((ADC1->SR & (1<<1))==0){
+        while(((ADC1->SR & (1<<1)) >> 1) == 0){
             ADC1->SR =0; //clear flag
             value=ADC1->DR; //read value
 
