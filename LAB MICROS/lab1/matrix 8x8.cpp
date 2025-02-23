@@ -46,10 +46,10 @@ void GPIO_MATRIZ(){
         GPIOD->PUPDR |= (1<<27)|(1<<25) |(1<<23);
 
     //---------Para configurar el pin 0 de la GPIOE como salida
-        GPIOE->MODER |= (1<<0)|(1<<28)|(1<<30)|(1<<4);
+        GPIOE->MODER |= (1<<0)|(1<<28)|(1<<30)|(1<<24)|(1<<4);
         GPIOE->OTYPER |= (1<<0);
         GPIOE->OSPEEDR |= (1<<0)|(1<<28)|(1<<30);
-        GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5);
+        GPIOE->PUPDR |= (1<<1)|(1<<29)|(1<<31)|(1<<5)|(1<<25);
 
     //---------Para configurar el pin 0 de la GPIOF como salida
         GPIOF->MODER |=(1<<8);
@@ -71,9 +71,30 @@ int main() {
         while(1) {
             
             GPIO_MATRIZ();
-            GPIOE->ODR = (1<<2);
-            GPIOB->ODR = (0<<1);
+
+
+					  GPIOE->ODR = (1<<2);
+            GPIOA->ODR = (1<<0);
+            GPIOB->ODR = (1<<0);
+            GPIOE->ODR = (1<<0);
+            GPIOE->ODR = (1<<14);
+            GPIOE->ODR = (1<<15);
+            GPIOB->ODR = (1<<10);
+						GPIOB->ODR = (1<<11);
+
+						GPIOB->ODR=(0<<1);
+					GPIOC->ODR=(0<<2);
+					GPIOF->ODR=(0<<4);
+					GPIOB->ODR=(0<<6);
+					GPIOB->ODR=(0<<2);
+					GPIOD->ODR=(0<<13);
+					GPIOD->ODR=(0<<12);
+					GPIOD->ODR=(0<<11);
+        
+        }
+
+
                 
             
-        }
-    }
+}
+    
