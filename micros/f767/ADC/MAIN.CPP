@@ -12,8 +12,8 @@ void PORTS() {
 
     // A PORTS AS ADC
     /*MODER 0 FOR 8 BITS ,4 MHZ, 112 CYCLES , ALLINGMENT RIGHT 
-    0,3-  1V----->TURN ON BLUE LED   255
-    1,3-  2V----->TURN ON GREEN LED   85 ---- 170
+    0,3-  1V----->TURN ON BLUE LED
+    1,3-  2V----->TURN ON GREEN LED
     2-    3V----->TURN ON RED LED
     */
     GPIOA->MODER|=(1<<1)|(1<<0); //PA0 as analog mode
@@ -28,6 +28,7 @@ void PORTS() {
     ADC1->SQR3|=(0b00000<<0); //channel 0
 
     //D PORTS AS OUTPUT
+		GPIOD->MODER &= ~((1<<14)|(1<<12)|(1<<10));
     GPIOD->MODER|=(1<<14)|(1<<12)|(1<<10); //PD7,PD6,PD5 as output mode
     GPIOD->OTYPER=(1<<0); //output push pull
     GPIOD->OSPEEDR|=(3<<14)|(3<<12)|(3<<10); //high speed
@@ -44,11 +45,14 @@ int main() {
         voltage = ADC1->DR; //read value
         volts = (voltage * 3.3) / 255; //convert to volts
 
-        if(volts > 0,00117 & volts <0.00392) {
+				if(voltage > 230) {
+            GPIOD->ODR = 0; //turn on blue led
+				}
+        else if(voltage > 165 & voltage < 230) {
             GPIOD->ODR = (1<<7); //turn on blue led
-        } else if(volts >= 85 & volts < 170) {
+        } else if(voltage > 80 & voltage < 165) {
             GPIOD->ODR = (1<<6); //turn on green led
-        } else {
+        } else  if (voltage > 0 & voltage < 80){
             GPIOD->ODR = (1<<5); //turn on red led
         }
     }
