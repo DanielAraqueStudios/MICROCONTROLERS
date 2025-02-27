@@ -1,75 +1,55 @@
-
-//operation 'or' (|) for set bit and operation 'and' (&) for clear bit
-
 #include <stdio.h>
 #include "stm32f7xx.h"
 #include <string.h>
 
+volatile double volts = 0;
+volatile uint16_t voltage = 0; // Corregir el tipo de dato a uint16_t
+int box;
 
-float value=0;
-
-void PORTS(){
-
+void PORTS() {
     RCC->AHB1ENR |= (1<<0)|(1<<1)|(1<<2)|(1<<3); //enable clock for port A,B,C ,D
-    RCC->APB2ENR|=(1<<8); //ENABLE ADC1 CLOCK
+    RCC->APB2ENR|=(1<<8)|(1<<9)|(1<<10); //ENABLE ADC1 CLOCK
 
     // A PORTS AS ADC
-
     /*MODER 0 FOR 8 BITS ,4 MHZ, 112 CYCLES , ALLINGMENT RIGHT 
-
-    0,3-  1V----->TURN ON BLUE LED
-    1,3-  2V----->TURN ON GREEN LED
+    0,3-  1V----->TURN ON BLUE LED   255
+    1,3-  2V----->TURN ON GREEN LED   85 ---- 170
     2-    3V----->TURN ON RED LED
-
     */
-
-    GPIOA->MODER|=(3<<0); //PA0 as analog mode
-    GPIOA->PUPDR|=(1<<1); //PA0 as pull up mode
+    GPIOA->MODER|=(1<<1)|(1<<0); //PA0 as analog mode
+    GPIOA->PUPDR|=(1<<1); //PA0 as pull down mode
 
     ADC->CCR|=(1<<16); //F= 4MHZ
     ADC1->CR1|=(1<<25);//8 bit resolution
-    ADC1->CR2|=(1<<0)|(1<<30)|(0<<11)|(1<<10);
+    ADC1->CR2|=(1<<0)|(1<<10); // turn on ADC & set end of conversion
+    ADC1->CR2 &= ~(1<<11); //right alignment
     ADC1->SMPR2|=(0b101<<0); //112 cycles
-    ADC1->SQR3|=(0<<0); //channel 0
-
+    ADC1->SQR3 &= ~(0b11111<<0); //clear channel
+    ADC1->SQR3|=(0b00000<<0); //channel 0
 
     //D PORTS AS OUTPUT
     GPIOD->MODER|=(1<<14)|(1<<12)|(1<<10); //PD7,PD6,PD5 as output mode
-    GPIOD->OTYPER=0; //output push pull
+    GPIOD->OTYPER=(1<<0); //output push pull
     GPIOD->OSPEEDR|=(3<<14)|(3<<12)|(3<<10); //high speed
-    GPIOD->PUPDR=0; //no pull up no pull down
-
+    GPIOD->PUPDR|=(1<<15)|(1<<13)|(1<<11); //no pull up no pull down
 }
 
+int main() {
+    PORTS();
 
-
-
-int main(){
-
-
-    while(1){
-
-        PORTS();
-
-        ADC1->CR2|=(1<<0); //start conversion
-        while(((ADC1->SR & (1<<1)) >> 1) == 0){
-            ADC1->SR =0; //clear flag
-            value=ADC1->DR; //read value
-
-        if(value<85){
-            GPIOD->ODR=(1<<7); //turn on blue led
-        }
-        else if(value>=85 && value<170){
-            GPIOD->ODR=(1<<6); //turn on green led
-        }
-        else{
-            GPIOD->ODR=(1<<5); //turn on red led
-        }          
-
-
-        } //wait for conversion
+    while(1) {
+        ADC1->CR2|=(1<<30); //start conversion
+        while(((ADC1->SR & (1<<1)) >> 1) == 0); //wait for conversion to complete (EOC flag)
         
+        voltage = ADC1->DR; //read value
+        volts = (voltage * 3.3) / 255; //convert to volts
+
+        if(volts > 0,00117 & volts <0.00392) {
+            GPIOD->ODR = (1<<7); //turn on blue led
+        } else if(volts >= 85 & volts < 170) {
+            GPIOD->ODR = (1<<6); //turn on green led
+        } else {
+            GPIOD->ODR = (1<<5); //turn on red led
+        }
     }
-
-
 }
