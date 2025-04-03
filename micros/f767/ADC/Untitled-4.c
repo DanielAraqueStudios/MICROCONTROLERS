@@ -2,9 +2,11 @@
 #include "stm32f7xx.h"
 #include <string.h>
 
-volatile double volts = 0;
-volatile uint16_t voltage = 0; // Corregir el tipo de dato a uint16_t
-volatile unit16_t voltage2 = 0; // Corregir el tipo de dato a uint16_t
+volatile double volts_POTENCIOMETER1  = 0;
+volatile double volts_POTENCIOMETER2  = 0;
+volatile uint16_t voltage = 0;
+volatile uint16_t voltage2 = 0;// Corregir el tipo de dato a uint16_t
+
 
 
 
@@ -54,8 +56,6 @@ resolution 6 bits
     ADC2->SQR3 &= ~(0b11111<<0); //clear channel
     ADC2->SQR3|=(0b00000<<0); //channel 0
 
-    
-
 
 
     //D PORTS AS OUTPUT
@@ -75,13 +75,14 @@ int main() {
         
         while(!(ADC2->SR & (1<<1))); //wait for conversion to complete (EOC flag)
         voltage2=ADC2->DR; //read value
+				volts_POTENCIOMETER2 = (voltage2 * 3.3) / 63; //convert to volts
         
         
 
         while(((ADC1->SR & (1<<1)) >> 1) == 0); //wait for conversion to complete (EOC flag)
         
         voltage = ADC1->DR; //read value
-        volts = (voltage * 3.3) / 255; //convert to volts
+        volts_POTENCIOMETER1 = (voltage * 3.3) / 255; //convert to volts
 
 				if(voltage > 230) {
             GPIOD->ODR = 0; //turn on blue led
