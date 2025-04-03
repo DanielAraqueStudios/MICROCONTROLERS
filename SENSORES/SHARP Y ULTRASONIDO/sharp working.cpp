@@ -6,20 +6,28 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+// Definiciones de pines LCD
+#define LCD_DATA_PORT     GPIOD   // PD0-PD7: Bus de datos de 8 bits
+#define LCD_CONTROL_PORT  GPIOF   // Puerto de control
+#define LCD_RS           0        // PF0: Register Select (0=Comando, 1=Datos)
+#define LCD_EN           1        // PF1: Enable
+
+// Definiciones de pines ADC
+#define ADC_PIN_PORT     GPIOA   // Puerto para el ADC
+#define ADC_PIN          0       // PA0: Pin para el sensor Sharp
+#define ADC_RESOLUTION   255.0   // Resolución de 8 bits
+#define ADC_VREF         3.3     // Voltaje de referencia
+
 #define FILTER_ALPHA 0.05  // Factor de suavizado para el filtro exponencial
 #define TANK_HEIGHT 22.1  // Altura total del tanque en cm
 #define TANK_RADIUS 3.75  // Radio del tanque en cm (5.5 cm de diámetro)
 
 // Variables globales
-volatile double codigo_adc = 0;
-volatile double volt_sharp = 0;
-volatile float altura_sharp = 0;
-volatile float volumen_sharp = 0;
-volatile float filteredDistance_sharp = 0;
-
-volatile uint32_t tiempo_ultra = 0;
-volatile double Distancia_ultra = 0;
-volatile float Volumen_ultra = 0;
+volatile double codigo = 0;
+volatile double volt = 0;
+volatile float altura = 0;
+volatile float volumen = 0;
+volatile float filteredDistance = 0;  // Distancia filtrada
 
 // Declaración de funciones
 void SysTick_Init(void);
@@ -32,83 +40,60 @@ void Command(uint8_t cmd);
 void Escribir(char data);
 void LCD_SendString(const char X[]);
 void LCD_SetCursor(uint8_t row, uint8_t col);
-void UpdateVolumen(float vol);
+void UpdateDisplay(float vol);
 float calculateDistance(float voltage);
 float getFilteredDistance(float newReading);
-void TIM2_Init(void);
-void TriggerSensor(void);
-uint32_t MeasurePulseWidth(void);
 
-// Modificar los mensajes LCD para mostrar distancia en lugar de volumen
-char fila1[16] = {'U', 'L', 'T', ':', ' ', ' ', ' ', ' ', 'c', 'm', ' ', ' ', ' ', ' ', ' '};
-char fila2[16] = {'S', 'H', 'P', ':', ' ', ' ', ' ', ' ', 'c', 'm', ' ', ' ', ' ', ' ', ' '};
+char fila1[16] = {'V', '(', 'c', 'm', '3', ')', ':',' ',' ',' ',' ',' ',' ',' ',' '};
 
 int main() {
-    // Configuración inicial común
-    RCC->AHB1ENR |= (1<<0)|(1<<2)|(1<<3)|(1<<5);  // GPIOA, GPIOC, GPIOD, GPIOF
+    // Configuración del ADC
+    RCC->AHB1ENR |= (1<<0);     // Habilitar reloj para GPIOA
+    ADC_PIN_PORT->MODER |= (3<<(ADC_PIN*2));  // Configurar PA0 como analógico
+    
+    // Configuración ADC1
+    RCC->APB2ENR |= (1<<8);     // Habilitar reloj para ADC1
+    ADC->CCR &= ~(3<<16);       // ADCPR = 00: No prescaler
+    ADC1->CR1 &= ~((3<<24)|(1<<8)); // Resolución 8 bits
+    ADC1->SMPR2 |= (7<<0);      // 480 ciclos de muestreo para canal 0
+    ADC1->SQR3 &= ~(0x1F);      // Canal 0 para conversión
+    ADC1->CR2 |= (1<<0);        // Habilitar ADC
 
-    // Configurar pines
-    GPIOA->MODER |= 0x3;        // PA0 como analógico (Sharp)
-    GPIOA->MODER |= (1<<6);     // PA3 como salida (Trigger)
-    GPIOA->MODER &= ~(3<<4);    // PA2 como entrada (Echo)
+    // Configuración de registros para pines
+    LCD_DATA_PORT->MODER |= 0x00005555;  // Configurar PD0-PD7 como salida 
+    LCD_DATA_PORT->OTYPER &= ~0x000000;  // Configurar PD0-PD7 como push-pull
+    LCD_CONTROL_PORT->MODER |= 0x00000005;  // Configurar PF0 y PF1 como salida
+    LCD_CONTROL_PORT->PUPDR &= ~(0x0000000F);  // Sin resistencias pull-up/pull-down
 
-    // Configuración LCD
-    GPIOD->MODER |= 0x00005555;  // Configurar PD0-PD7 como salida 
-    GPIOD->OTYPER &= ~0x000000;  // Configurar PD0-PD7 como push-pull
-    GPIOF->MODER |= 0x00000005;  // Configurar PF0 y PF1 como salida
-    GPIOF->PUPDR &= ~(0x0000000F);  // Sin resistencias pull-up/pull-down
-
-    // Configuración ADC
-    RCC->APB2ENR |= 0x700;      // Habilitar ADC1,2,3
-    ADC1->CR1 |= (2<<24);       // Configuración ADC
-    ADC1->SMPR2 |= (5<<0);      // Muestreo
-    ADC1->CR2 |= 0x3;           // Habilitar ADC
-
-    // Inicializaciones
     SysTick_Init();
     LCD_Init();
-    TIM2_Init();
-
-    // Mostrar mensajes iniciales
     LCD_SendString(fila1);
-    LCD_SetCursor(1, 0);
-    LCD_SendString(fila2);
 
-    while(1) {
-        // Leer Sharp
-        ADC1->CR2 |= 1 << 30;
-        while ((ADC1->SR & (1 << 1)) == 0);
-        codigo_adc = ADC1->DR;
-        volt_sharp = (codigo_adc) * (3.3) / (255.0);
-        float distance_sharp = calculateDistance(volt_sharp);
-        filteredDistance_sharp = getFilteredDistance(distance_sharp);
-
-        // Validación de rango para el Sharp
-        if (filteredDistance_sharp < 4.0 || filteredDistance_sharp > 30.0) {
-            // Si está fuera de rango, mantener la última lectura válida
-            filteredDistance_sharp = getFilteredDistance(filteredDistance_sharp);
+    while (1) {
+        // Leer el ADC
+        ADC1->CR2 |= 1 << 30;  // Iniciar conversión
+        while ((ADC1->SR & (1 << 1)) == 0) {
+            // Esperar a que la conversión termine
         }
+        
+        codigo = ADC1->DR;  // Leer el valor del ADC
+        volt = (codigo) * (ADC_VREF) / (ADC_RESOLUTION);  // Convertir a voltaje
+        
+        float distance = calculateDistance(volt);  // Calcular distancia
+        filteredDistance = getFilteredDistance(distance);  // Aplicar filtrado
+        
+        // Calcular la altura del líquido (sensor en la parte superior)
+        altura = TANK_HEIGHT - filteredDistance;
+        if (altura < 0) altura = 0;  // Asegurar que no sea negativa
+        if (altura > TANK_HEIGHT) altura = TANK_HEIGHT;  // Asegurar que no exceda la altura del tanque
 
-        altura_sharp = TANK_HEIGHT - filteredDistance_sharp;
-        if (altura_sharp < 0) altura_sharp = 0;
-        if (altura_sharp > TANK_HEIGHT) altura_sharp = TANK_HEIGHT;
-        volumen_sharp = M_PI * pow(TANK_RADIUS, 2) * altura_sharp;
+        // Calcular el volumen en cm³
+        volumen = M_PI * pow(TANK_RADIUS, 2) * altura;  // Volumen en cm³
 
-        // Leer Ultrasonido
-        TriggerSensor();
-        tiempo_ultra = MeasurePulseWidth();
-        if (tiempo_ultra > 38000) tiempo_ultra = 38000;
-        Distancia_ultra = (tiempo_ultra * 0.0343) / 2.0;
-        Volumen_ultra = 7.0 * Distancia_ultra;
-        if (Volumen_ultra < 0) Volumen_ultra = 0;
+        // Actualizar la pantalla LCD solo con el volumen
+        UpdateDisplay(volumen);
 
-        // Actualizar LCD con distancias en lugar de volúmenes
-        LCD_SetCursor(0, 5);
-        UpdateVolumen(Distancia_ultra);  // Mostrar distancia del ultrasonido
-        LCD_SetCursor(1, 5);
-        UpdateVolumen(filteredDistance_sharp);  // Mostrar distancia del Sharp
-
-        SysTick_Wait1ms(100);
+        SysTick_Wait1ms(400);  // Esperar 1 segundo entre lecturas
     }
 }
 
@@ -119,15 +104,12 @@ float calculateDistance(float voltage) {
 }
 
 float getFilteredDistance(float newReading) {
-    static float lastFiltered = 0;
-    
-    if (lastFiltered == 0) {
-        lastFiltered = newReading;
+    // Aplicar un filtro exponencial
+    if (filteredDistance == 0) {
+        filteredDistance = newReading;  // Inicializar la primera lectura
     }
-    
-    // Aplicar filtro exponencial simple
-    lastFiltered = (FILTER_ALPHA * newReading) + ((1 - FILTER_ALPHA) * lastFiltered);
-    return lastFiltered;
+    filteredDistance = (FILTER_ALPHA * newReading) + ((1 - FILTER_ALPHA) * filteredDistance);  // Filtro exponencial
+    return filteredDistance;
 }
 
 void SysTick_Init(void) {
@@ -148,21 +130,21 @@ void SysTick_Wait1ms(uint32_t delay) {
 }
 
 void Enable(void) {
-    GPIOF->ODR |= 0x2;  // Set EN high
+    LCD_CONTROL_PORT->ODR |= (1 << LCD_EN);  // Set EN high
     SysTick_Wait1ms(20);  // Esperar
-    GPIOF->ODR &= ~0x2;  // Set EN low
+    LCD_CONTROL_PORT->ODR &= ~(1 << LCD_EN);  // Set EN low
     SysTick_Wait1ms(1);  // Esperar
 }
 
 void Command(uint8_t cmd) {
-    GPIOD->ODR = cmd;  // Enviar el comando completo
-    GPIOF->ODR &= ~0x1;  // RS = 0 para comando
+    LCD_DATA_PORT->ODR = cmd;  // Enviar el comando completo
+    LCD_CONTROL_PORT->ODR &= ~(1 << LCD_RS);  // RS = 0 para comando
     Enable();  // Habilitar
 }
 
 void Escribir(char data) {
-    GPIOD->ODR = data;  // Enviar el dato completo
-    GPIOF->ODR |= 0x1;  // RS = 1 para dato
+    LCD_DATA_PORT->ODR = data;  // Enviar el dato completo
+    LCD_CONTROL_PORT->ODR |= (1 << LCD_RS);  // RS = 1 para dato
     Enable();  // Habilitar
 }
 
@@ -188,10 +170,13 @@ void LCD_SetCursor(uint8_t row, uint8_t col) {
     Command(address);  // Enviar comando de posición
 }
 
-void UpdateVolumen(float vol) {
+void UpdateDisplay(float vol) {
     char volStr[8];
-    floatToString(vol, volStr, 1);
+
+    floatToString(vol, volStr, 1);  // Formatear el volumen con 1 decimal
     
+    // Actualizar la primera fila con el volumen
+    LCD_SetCursor(0, 6);
     for (int i = 0; i < 6; i++) {
         if (volStr[i] != '\0') {
             Escribir(volStr[i]);
@@ -208,26 +193,4 @@ void LCD_Init(void) {
     Command(0x01);  // Limpiar el display
     SysTick_Wait1ms(2);  // Esperar 2 ms
     Command(0x06);  // Desplazar a la derecha al escribir
-}
-
-void TIM2_Init(void) {
-    RCC->APB1ENR |= (1<<0);  // Habilitar reloj para TIM2
-    TIM2->PSC = 16 - 1;      // Prescaler
-    TIM2->ARR = 0xFFFFFFFF;  // Auto-reload máximo
-    TIM2->CR1 |= (1<<0);     // Habilitar contador
-}
-
-void TriggerSensor(void) {
-    GPIOA->ODR |= (1<<3);  // Activar Trigger
-    SysTick_Wait1ms(1);    // Esperar 10 us
-    GPIOA->ODR &= ~(1<<3); // Desactivar Trigger
-}
-
-uint32_t MeasurePulseWidth(void) {
-    uint32_t start = 0, end = 0;
-    while (!(GPIOA->IDR & (1<<2)));  // Esperar a que Echo sea alto
-    start = TIM2->CNT;               // Capturar tiempo inicial
-    while (GPIOA->IDR & (1<<2));     // Esperar a que Echo sea bajo
-    end = TIM2->CNT;                 // Capturar tiempo final
-    return end - start;              // Calcular ancho de pulso
 }
