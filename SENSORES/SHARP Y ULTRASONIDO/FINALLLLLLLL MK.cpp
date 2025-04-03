@@ -120,12 +120,8 @@ volumen_tanque = M_PI * TANK_RADIUS * TANK_RADIUS * altura_liquido;
 volumen1=2211.319-volumen_tanque;
 
 
-Distancia_ultra=(3,14159265358979323846/4)*(9,1*9,1)Distancia_ultra;
-
 filteredDistance_sharp=Distancia_ultra;
-
-
-
+            
 
         // Actualizar LCD con los tres valores
         LCD_SetCursor(0, 5);
