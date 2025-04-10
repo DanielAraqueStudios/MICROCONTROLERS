@@ -9,7 +9,7 @@ void PORTS() {
     RCC->AHB1ENR |= (0b1111111111<<0); //enable clock for port A-J
 
 
-    */
+    
     GPIOA->MODER|=(1<<1)|(1<<0); //PA0 as analog mode
     GPIOA->PUPDR|=(1<<1); //PA0 as pull down mode
 
