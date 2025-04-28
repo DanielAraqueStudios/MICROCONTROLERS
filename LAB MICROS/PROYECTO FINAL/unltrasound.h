@@ -49,43 +49,80 @@ uint32_t MeasurePulseWidth(void);
 void TIM2_Start(void);
 void TIM2_Stop(void);
 
+//MUST use this function in the main code to initialize the LCD and other peripherals
+
+void lcdfuntional(void) {
+     
+
+// Habilitar el FPU
+SCB->CPACR |= (0xF << 20);
+
+// Configuración de relojes
+RCC->AHB1ENR |= (1<<0)|(1<<2)|(1<<3)|(1<<5);
+
+// Configurar pines
+GPIOA->MODER |= 0x3;
+GPIOA->MODER |= (1<<6);
+GPIOA->MODER &= ~(3<<4);
+
+// Configuración LCD
+GPIOD->MODER |= 0x00005555;
+GPIOD->OTYPER &= ~0x000000;
+GPIOF->MODER |= 0x00000005;
+GPIOF->PUPDR &= ~(0x0000000F);
+
+// Configuración ADC
+RCC->APB2ENR |= 0x700;
+ADC1->CR1 |= (2<<24);
+ADC1->SMPR2 |= (5<<0);
+ADC1->CR2 |= 0x3;
+
+// Inicializaciones
+SysTick_Init();
+LCD_Init();
+TIM2_Init();
+
+// Mostrar mensajes iniciales modificados
+LCD_SendString(fila1);
+LCD_SetCursor(1, 0);
+LCD_SendString(fila2);
+LCD_SetCursor(2, 0);
+LCD_SendString(fila3);
+
+}
+
+//function to measure the distance using the ultrasonic sensor
+
+void measure_ultra(void) {
+
+    // Leer Ultrasonido y calcular volumen
+    TriggerSensor();
+    tiempo_ultra = MeasurePulseWidth();
+    Distancia_ultra = (tiempo_ultra * 0.0343) / 2.0;
+    // Aplicando la regresión directamente
+    Distancia_ultra = -0.066 * Distancia_ultra + 36.96;
+
+    if (Distancia_ultra>5){
+
+        //chage direction of the car
+
+        //variable to update if the net move is left or right
+
+    }
+ 
+}
+
 int main() {
-    // Habilitar el FPU
-    SCB->CPACR |= (0xF << 20);
 
-    // Configuración de relojes
-    RCC->AHB1ENR |= (1<<0)|(1<<2)|(1<<3)|(1<<5);
 
-    // Configurar pines
-    GPIOA->MODER |= 0x3;
-    GPIOA->MODER |= (1<<6);
-    GPIOA->MODER &= ~(3<<4);
+    lcdfuntional(); // Inicializar LCD y otros periféricos
 
-    // Configuración LCD
-    GPIOD->MODER |= 0x00005555;
-    GPIOD->OTYPER &= ~0x000000;
-    GPIOF->MODER |= 0x00000005;
-    GPIOF->PUPDR &= ~(0x0000000F);
 
-    // Configuración ADC
-    RCC->APB2ENR |= 0x700;
-    ADC1->CR1 |= (2<<24);
-    ADC1->SMPR2 |= (5<<0);
-    ADC1->CR2 |= 0x3;
-
-    // Inicializaciones
-    SysTick_Init();
-    LCD_Init();
-    TIM2_Init();
-
-    // Mostrar mensajes iniciales modificados
-    LCD_SendString(fila1);
-    LCD_SetCursor(1, 0);
-    LCD_SendString(fila2);
-    LCD_SetCursor(2, 0);
-    LCD_SendString(fila3);
+    
 
     while(1) {
+
+        measure_ultra(); // Medir distancia del ultrasonido
 
         
         /* Leer Sharp
@@ -108,12 +145,7 @@ int main() {
 
 
 
-// Leer Ultrasonido y calcular volumen
-TriggerSensor();
-tiempo_ultra = MeasurePulseWidth();
-Distancia_ultra = (tiempo_ultra * 0.0343) / 2.0;
-// Aplicando la regresión directamente
-Distancia_ultra = -0.066 * Distancia_ultra + 36.96;
+
 
 /*   Calcular volumen (p * r² * h) - MODIFICADO para medir volumen ocupado
 float altura_liquido = Distancia_ultra; // Ahora usamos directamente la distancia medida
