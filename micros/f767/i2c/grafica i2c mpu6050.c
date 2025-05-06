@@ -8,6 +8,23 @@
 #include "stm32f7xx.h"
 #include <string.h>
 
+// MPU6050 Pinout to STM32F767
+//----------------------------
+// VCC    -> 3.3V
+// GND    -> GND
+// SCL    -> PB8 (I2C1_SCL)
+// SDA    -> PB9 (I2C1_SDA)
+// XDA    -> NC (Not Connected)
+// XCL    -> NC (Not Connected)
+// AD0    -> GND (Sets address to 0x68)
+// INT    -> NC (Not Connected)
+
+// USART3 Pinout to STM32F767
+//---------------------------
+// TX     -> PD8 (USART3_TX)
+// RX     -> PD9 (USART3_RX)
+// GND    -> GND
+
 //MPU6050
 #define MPU6500_address 0x68 // Endereço da MPU6500 (giroscópio e acelerômetro)
 
@@ -210,100 +227,4 @@ int main(){
                 gyroy = raw_gyroy*SENSITIVITY_GYRO;
                 gyroz = raw_gyroz*SENSITIVITY_GYRO;
                 temp = (raw_temp/SENSITIVITY_TEMP)+21;
-                //sprintf(text,"%d \t %d \t %d \t %d \t %d \t %d \t %d \t %d \n",i+1,raw_accelx, raw_accely, raw_accelz, raw_gyrox, raw_gyroy, raw_gyroz, raw_temp);
-                sprintf(text,"%d \t %.2f \t %.2f \t %.2f \t %.2f \t %.2f \t %.2f \t %.2f \n\r",i+1,accelx, accely, accelz, gyrox, gyroy, gyroz, temp);
-                for(j=0; j<strlen(text); j++){
-                        USART3->TDR = text[j]; 
-                        while(((USART3->ISR & 0x80) >> 7) == 0){} 
-                }
-                //USART3->TDR = 0x0A; 
-                //while((USART3->ISR & 0x80)==0){};
-                USART3->TDR = 0x0D; 
-                while(((USART3->ISR & 0x80) >> 7) == 0){}
-            }
-        }
-    }
-}
-
-void WriteI2C1(uint8_t Address, uint8_t Register, uint8_t *Data, uint8_t bytes){
-    uint8_t n; // Count for data read
-    
-    I2C1->CR2 &= ~(0x3FF<<0);// Clear the slave address
-    I2C1->CR2 |= (Address<<1);// Set the 7-bit slave address to be sent
-
-    // i2c modo escritura
-    I2C1->CR2 &= ~(1<<10);// Master requests a write transfer
-    I2C1->CR2 &= ~(0xFF<<16);// Clear the number of bytes to be transmitted
-    I2C1->CR2 |= ((bytes+1)<<16);// Set the number of bytes to be transmitted
-    I2C1->CR2 |= (1<<25);// Set automatic end mode
-
-    I2C1->CR2 |= (1<<13);// Generate START
-
-    while (((I2C1->ISR) & (1<<1)) != (0b10)){}// Wait the (TXIS) Transmit interrupt status
-
-    I2C1->TXDR = Register;// Transmit the register
-
-    n = bytes;
-    while(n>0){
-        while (((I2C1->ISR) & (1<<1)) != (0b10)){}// Wait the (TXIS) Transmit interrupt status
-        I2C1->TXDR = *Data;// Data to be sent
-        Data++;
-        n--;
-    }
-    while (((I2C1->ISR) & (1<<5)) != (0b100000)){}// Wait the STOPF detection flag
-}
-
-void ReadI2C1(uint8_t Address, uint8_t Register, uint8_t *Data, uint8_t bytes ) {
-    
-    uint8_t n; // Contador para la lectura de los bytes
-
-    // Dirección del dispositivo
-    I2C1->CR2 &= ~(0x3FF<<0);// Clear the slave address
-    I2C1->CR2 |= (Address<<1);// Set the 7-bit slave address to be sent
-
-// i2c modo escritura
-    I2C1->CR2 &= ~(1<<10);// Master requests a write transfer
-    I2C1->CR2 &= ~(0xFF<<16);// Clear the number of bytes to be transmitted
-    I2C1->CR2 |= (1<<16);// Set the number of bytes to be transmitted
-    I2C1->CR2 &= ~(1<<25);// Set software end mode
-
-    I2C1->CR2 |= (1<<13);// Generate START
-    
-    while (((I2C1->ISR) & (1<<1)) != (0b10)){}// Wait the (TXIS) Transmit interrupt status
-
-    I2C1->TXDR = Register;// Transmit the register
-
-    while (((I2C1->ISR) & (1<<6)) != (0b1000000)){}// Wait a (TC) Transfer complete
-
-    // i2c en modo lectura
-    I2C1->CR2 |= (1<<10);// Master requests a read transfer
-    I2C1->CR2 &= ~(0xFF<<16);// Clear the number of bytes to be transmitted
-    I2C1->CR2 |= (bytes<<16);// Set the number of bytes to be received
-    I2C1->CR2 &= ~(1<<25);// Set software end mode
-
-    I2C1->CR2 |= (1<<13);// Generate RE-START
-
-    n = bytes;
-    while (n>0){
-        while (((I2C1->ISR) & (1<<2)) != (0b100)){}// Wait (RXNE) that the received data is copied into the I2C_RXDR register
-        *Data = I2C1->RXDR;// Receive the register
-        Data++;
-        n--;
-    }
-
-    I2C1->CR2 |= (1<<14);// I2C stop
-
-    while (((I2C1->ISR) & (1<<5)) != (0b100000)){}// Wait the STOPF detection flag
-}
-
-void Print(char *data, int n){
-    for(j=0; j<n; j++){
-        USART3->TDR = *data; 
-        data++;
-        while(((USART3->ISR & 0x80) >> 7) == 0){} 
-    }
-    //USART3->TDR = 0x0A; 
-    //while((USART3->ISR & 0x80)==0){};
-    USART3->TDR = 0x0D; 
-    while(((USART3->ISR & 0x80) >> 7) == 0){}
-}
+                //sprintf(text,"%d \t %d \t %d \t %d \t %d \t %d \t %d \t %d \n",i+1,raw_accelx, raw_accel
