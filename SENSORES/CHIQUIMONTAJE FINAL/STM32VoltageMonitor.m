@@ -35,16 +35,21 @@ classdef STM32VoltageMonitor < handle
         GRAPH_MIN = -2.0;        % Límite inferior de la gráfica
         GRAPH_MAX = 0;           % Límite superior de la gráfica
         
+        % Rangos de visualización
+        DISPLAY_SCALE = 4;      % Factor de escala para la visualización
+        DISPLAY_OFFSET = -2;    % Offset para centrar la señal
+        
         % UI Elements
         warningText;  % Texto de advertencia en GUI
         warningImage; % Imagen de advertencia
         imageAxes;    % Axes para la imagen
         
         % UI Elements para animación de respiración
-        circleAx;      % Axes para el círculo de respiración
-        circleHandle;  % Handle para el círculo
-        baseRadius = 50; % Radio base del círculo
-        maxScale = 1.5; % Escala máxima de expansión
+        circleAx;        % Axes para el círculo de respiración
+        circleHandle;    % Handle para el arco exterior
+        innerCircle;     % Handle para el círculo interior
+        percentText;     % Handle para el texto de porcentaje
+        baseRadius = 80; % Radio base del círculo
     end
     
     methods
@@ -85,8 +90,8 @@ classdef STM32VoltageMonitor < handle
             xlabel(obj.ax, 'Tiempo (s)');
             ylabel(obj.ax, 'Estado');
             grid(obj.ax, 'on');
-            ylim(obj.ax, [obj.GRAPH_MIN obj.GRAPH_MAX]);  % Zoom ajustado
-            yticks([-1.5 -0.5]);  % Marcas en Y ajustadas
+            ylim(obj.ax, [-4 0]);  % Rango ampliado
+            yticks([-3 -1]);     % Marcas ajustadas
             yticklabels({'Exhalación', 'Inhalación'});
             
             % Línea inicial
@@ -118,25 +123,36 @@ classdef STM32VoltageMonitor < handle
                 warning('No se pudo cargar la imagen de advertencia');
             end
             
-            % Crear axes para el círculo de respiración
+            % Crear axes para el círculo de porcentaje
             obj.circleAx = axes('Parent', obj.fig, ...
-                'Position', [0.4 0.05 0.45 0.25], ... % Debajo de la gráfica principal
-                'XLim', [-100 100], ...
-                'YLim', [-100 100]);
+                'Position', [0.4 0.05 0.45 0.25]);
             axis(obj.circleAx, 'equal');
             axis(obj.circleAx, 'off');
-            
-            % Crear círculo inicial
+            set(obj.circleAx, 'XLim', [-100 100], 'YLim', [-100 100]);
+
+            % Crear círculo base (gris claro)
             theta = linspace(0, 2*pi, 100);
             x = obj.baseRadius * cos(theta);
             y = obj.baseRadius * sin(theta);
-            obj.circleHandle = fill(obj.circleAx, x, y, 'b', ...
-                'FaceAlpha', 0.3, ...
-                'EdgeColor', [0.2 0.6 1], ...
-                'LineWidth', 2);
-            
+            obj.innerCircle = line(obj.circleAx, x, y, ...
+                'Color', [0.8 0.8 0.8], ...
+                'LineWidth', 8);
+
+            % Crear arco de progreso (inicialmente vacío)
+            obj.circleHandle = line(obj.circleAx, [], [], ...
+                'Color', [0.2 0.6 1], ...
+                'LineWidth', 8);
+
+            % Añadir texto de porcentaje
+            obj.percentText = text(obj.circleAx, 0, 0, '0%', ...
+                'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', 'middle', ...
+                'FontSize', 20, ...
+                'Color', [0.2 0.6 1], ...
+                'FontWeight', 'bold');
+
             % Añadir texto guía
-            text(obj.circleAx, 0, -80, 'Respira con el círculo', ...
+            text(obj.circleAx, 0, -95, 'Progreso de Respiración', ...
                 'HorizontalAlignment', 'center', ...
                 'FontSize', 12, ...
                 'Color', [0.2 0.6 1]);
@@ -168,9 +184,10 @@ classdef STM32VoltageMonitor < handle
                     estado = 'Exhalando';
                 end
                 
-                % Actualizar puntos de la gráfica con el voltaje real invertido y escalado
+                % Actualizar puntos de la gráfica con escalado mejorado
                 obj.timePoints(end+1) = obj.sampleCount;
-                scaledVolt = -1 * (obj.lastVolt - obj.VOLT_THRESHOLD) - 0.5;  % Centrar y escalar
+                normalizedVolt = (obj.lastVolt - obj.VOLT_THRESHOLD) / (obj.VOLT_RANGE_MAX - obj.VOLT_THRESHOLD);
+                scaledVolt = normalizedVolt * obj.DISPLAY_SCALE + obj.DISPLAY_OFFSET;
                 obj.voltPoints(end+1) = scaledVolt;
                 
                 % Mantener el tamaño máximo del buffer
@@ -200,23 +217,34 @@ classdef STM32VoltageMonitor < handle
                     xlim(obj.ax, [1, obj.maxPoints]);
                 end
                 
-                % Actualizar animación del círculo
-                scale = 1;
+                % Actualizar animación del círculo de porcentaje
                 if estado == 'Inhalando'
-                    % Expandir círculo basado en el voltaje
-                    scale = 1 + (obj.VOLT_THRESHOLD - obj.lastVolt) / ...
-                           obj.VOLT_THRESHOLD * (obj.maxScale - 1);
+                    progress = (obj.VOLT_THRESHOLD - obj.lastVolt) / obj.VOLT_THRESHOLD;
                 else
-                    % Contraer círculo
-                    scale = 1 + (obj.lastVolt - obj.VOLT_THRESHOLD) / ...
-                           (obj.VOLT_RANGE_MAX - obj.VOLT_THRESHOLD) * (1 - 1/obj.maxScale);
+                    progress = (obj.lastVolt - obj.VOLT_THRESHOLD) / (obj.VOLT_RANGE_MAX - obj.VOLT_THRESHOLD);
                 end
                 
-                % Actualizar tamaño del círculo
-                theta = linspace(0, 2*pi, 100);
-                x = obj.baseRadius * scale * cos(theta);
-                y = obj.baseRadius * scale * sin(theta);
+                % Calcular puntos del arco basado en el progreso (0-100%)
+                angle = 2 * pi * progress;
+                theta = linspace(0, angle, 100);
+                x = obj.baseRadius * cos(theta);
+                y = obj.baseRadius * sin(theta);
+                
+                % Actualizar arco de progreso
                 set(obj.circleHandle, 'XData', x, 'YData', y);
+                
+                % Actualizar texto de porcentaje
+                percentage = round(progress * 100);
+                set(obj.percentText, 'String', sprintf('%d%%', percentage));
+                
+                % Actualizar color basado en el estado
+                if estado == 'Inhalando'
+                    color = [0.2 0.6 1];  % Azul para inhalación
+                else
+                    color = [0.1 0.8 0.4]; % Verde para exhalación
+                end
+                set(obj.circleHandle, 'Color', color);
+                set(obj.percentText, 'Color', color);
             end
         end
         
