@@ -29,11 +29,9 @@ classdef STM32VoltageMonitor < handle
         updateTimer;
         
         % Umbrales de respiración
-        INHALE_MIN = 0.0;    % Voltaje mínimo para inhalación
-        INHALE_MAX = 1.15;   % Voltaje máximo para inhalación
-        EXHALE_MIN = 1.15;   % Voltaje mínimo para exhalación
-        EXHALE_MAX = 3.3;    % Voltaje máximo para exhalación
-        lastBreathState = 0;
+        INHALE_THRESHOLD = 1.2;  % Voltaje para inhalación (0V - 1.2V)
+        EXHALE_THRESHOLD = 1.2;  % Voltaje para exhalación (1.2V - 3.3V)
+        lastBreathState = 1;     % 2: inhalando, 1: neutral, 0: exhalando
         
         % Conteo de respiraciones
         breathCount = 0;
@@ -43,7 +41,6 @@ classdef STM32VoltageMonitor < handle
         warningText;  % Texto de advertencia en GUI
         warningImage; % Imagen de advertencia
         imageAxes;    % Axes para la imagen
-        voltageText;  % Texto para mostrar el voltaje actual
     end
     
     methods
@@ -82,12 +79,11 @@ classdef STM32VoltageMonitor < handle
                 'Position', [0.3 0.1 0.65 0.8]);
             title(obj.ax, 'Patrón de Respiración');
             xlabel(obj.ax, 'Tiempo (s)');
-            ylabel(obj.ax, 'Estado');
+            ylabel(obj.ax, 'Estado Respiración');
             grid(obj.ax, 'on');
-            ylim(obj.ax, [0 3.5]);  % Rango del voltaje ajustado
-            yticks([obj.INHALE_MIN + (obj.INHALE_MAX-obj.INHALE_MIN)/2, ...
-                   obj.EXHALE_MIN + (obj.EXHALE_MAX-obj.EXHALE_MIN)/2]);  % Puntos medios
-            yticklabels({'Inhalación', 'Exhalación'});
+            ylim(obj.ax, [-0.5 1.5]);
+            yticks([0 1]);
+            yticklabels({'Exhalación', 'Inhalación'});
             
             % Línea inicial
             obj.linePlot = line(obj.ax, NaN, NaN, ...
@@ -117,14 +113,6 @@ classdef STM32VoltageMonitor < handle
             catch
                 warning('No se pudo cargar la imagen de advertencia');
             end
-            
-            % Agregar texto para mostrar voltaje (después del warningText)
-            obj.voltageText = uicontrol('Style', 'text', ...
-                'Position', [50 500 200 30], ...
-                'String', 'Voltaje: 0.00 V', ...
-                'BackgroundColor', 'white', ...
-                'FontSize', 12, ...
-                'Visible', 'on');
         end
         
         function sendCommand(obj, cmd)
@@ -146,55 +134,36 @@ classdef STM32VoltageMonitor < handle
             if obj.lastVolt ~= 0
                 obj.sampleCount = obj.sampleCount + 1;
                 
-                % Determinar estado de respiración basado en rangos de voltaje
-                if obj.lastVolt >= obj.INHALE_MIN && obj.lastVolt < obj.INHALE_MAX
-                    breathState = 1; % Inhalación
-                    estado = 'Inhalando';
-                elseif obj.lastVolt >= obj.EXHALE_MIN && obj.lastVolt <= obj.EXHALE_MAX
-                    breathState = 0; % Exhalación
-                    estado = 'Exhalando';
+                % Determinar estado de respiración y asignar valor por defecto
+                breathState = 0; % Por defecto es exhalación
+                
+                if obj.lastVolt < obj.INHALE_THRESHOLD
+                    breathState = 1; % Inhalación (arriba, cuando voltaje < 1.2V)
+                    if obj.lastBreathState ~= 1  % Solo contar al cambiar a inhalación
+                        currentTime = now * 24 * 3600;  % Tiempo actual en segundos
+                        if currentTime - obj.lastBreathTime <= 1  % Si pasó menos de 1 segundo
+                            obj.breathCount = obj.breathCount + 1;
+                        else  % Si pasó más de 1 segundo, reiniciar conteo
+                            obj.breathCount = 1;
+                        end
+                        obj.lastBreathTime = currentTime;
+                        
+                        % Mostrar advertencia si respira muy rápido
+                        if obj.breathCount > 5
+                            set(obj.warningText, 'Visible', 'on');
+                            obj.imageAxes.Visible = 'on';
+                        else
+                            set(obj.warningText, 'Visible', 'off');
+                            obj.imageAxes.Visible = 'off';  % Removed extra parenthesis here
+                        end
+                    end
                 end
+                
+                obj.lastBreathState = breathState;
                 
                 % Actualizar puntos de la gráfica
                 obj.timePoints(end+1) = obj.sampleCount;
                 obj.voltPoints(end+1) = breathState;
-                
-                % Detectar inhalación/exhalación basado en tendencia
-                if length(obj.voltPoints) > 1
-                    voltDiff = obj.voltPoints(end) - obj.voltPoints(end-1);
-                    if abs(voltDiff) > 0.01  % Umbral de cambio significativo
-                        if voltDiff > 0
-                            estado = 'Inhalando';
-                        else
-                            estado = 'Exhalando';
-                        end
-                        
-                        % Contar respiraciones rápidas
-                        if voltDiff * (obj.lastBreathState) < 0  % Cambio de dirección
-                            currentTime = now * 24 * 3600;
-                            if currentTime - obj.lastBreathTime <= 1
-                                obj.breathCount = obj.breathCount + 1;
-                            else
-                                obj.breathCount = 1;
-                            end
-                            obj.lastBreathTime = currentTime;
-                            
-                            % Mostrar advertencia si respira muy rápido
-                            if obj.breathCount > 5
-                                set(obj.warningText, 'Visible', 'on');
-                                obj.imageAxes.Visible = 'on';
-                            else
-                                set(obj.warningText, 'Visible', 'off');
-                                obj.imageAxes.Visible = 'off';
-                            end
-                        end
-                        obj.lastBreathState = sign(voltDiff);
-                    else
-                        estado = 'Neutral';
-                    end
-                else
-                    estado = 'Iniciando';
-                end
                 
                 % Mantener el tamaño máximo del buffer
                 if length(obj.timePoints) > obj.maxPoints + obj.scrollMargin
@@ -205,11 +174,15 @@ classdef STM32VoltageMonitor < handle
                 % Actualizar línea de la gráfica
                 set(obj.linePlot, 'XData', obj.timePoints, 'YData', obj.voltPoints);
                 
-                % Actualizar leyenda - solo mostrar estado sin voltaje
-                legend(obj.ax, sprintf('Estado: %s', estado));
+                % Actualizar estado de respiración
+                if breathState == 1
+                    estado = 'Inhalando';
+                else
+                    estado = 'Exhalando';
+                end
                 
-                % Actualizar display de voltaje
-                set(obj.voltageText, 'String', sprintf('Voltaje: %.2f V', obj.lastVolt));
+                % Actualizar leyenda
+                legend(obj.ax, sprintf('Estado: %s (%.2fV)', estado, obj.lastVolt));
                 
                 % Ajustar límites si es necesario
                 if obj.sampleCount > obj.startScroll
