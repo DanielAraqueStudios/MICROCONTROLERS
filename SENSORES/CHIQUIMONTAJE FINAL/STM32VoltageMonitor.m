@@ -79,10 +79,12 @@ classdef STM32VoltageMonitor < handle
                 'Position', [0.3 0.1 0.65 0.8]);
             title(obj.ax, 'Patrón de Respiración');
             xlabel(obj.ax, 'Tiempo (s)');
-            ylabel(obj.ax, 'Voltaje (V)');
+            ylabel(obj.ax, 'Estado');
             grid(obj.ax, 'on');
             ylim(obj.ax, [0.9 1.4]);  % Rango del voltaje con márgenes
-            yticks(0.9:0.1:1.4);
+            % Cambiar etiquetas del eje Y
+            yticks([1.0 1.3]);  % Solo mostrar dos niveles
+            yticklabels({'Exhalación', 'Inhalación'});
             
             % Línea inicial
             obj.linePlot = line(obj.ax, NaN, NaN, ...
@@ -133,9 +135,9 @@ classdef STM32VoltageMonitor < handle
             if obj.lastVolt ~= 0
                 obj.sampleCount = obj.sampleCount + 1;
                 
-                % Actualizar puntos de la gráfica con el voltaje real
+                % Actualizar puntos de la gráfica con el voltaje real invertido
                 obj.timePoints(end+1) = obj.sampleCount;
-                obj.voltPoints(end+1) = obj.lastVolt;
+                obj.voltPoints(end+1) = -1 * obj.lastVolt + 2.3; % Invertir y ajustar offset
                 
                 % Detectar inhalación/exhalación basado en tendencia
                 if length(obj.voltPoints) > 1
@@ -183,8 +185,8 @@ classdef STM32VoltageMonitor < handle
                 % Actualizar línea de la gráfica
                 set(obj.linePlot, 'XData', obj.timePoints, 'YData', obj.voltPoints);
                 
-                % Actualizar leyenda
-                legend(obj.ax, sprintf('Estado: %s (%.2fV)', estado, obj.lastVolt));
+                % Actualizar leyenda - solo mostrar estado sin voltaje
+                legend(obj.ax, sprintf('Estado: %s', estado));
                 
                 % Ajustar límites si es necesario
                 if obj.sampleCount > obj.startScroll
