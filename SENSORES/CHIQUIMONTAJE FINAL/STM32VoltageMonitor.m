@@ -27,6 +27,20 @@ classdef STM32VoltageMonitor < handle
         
         % Timer para actualización
         updateTimer;
+        
+        % Umbrales de respiración
+        INHALE_THRESHOLD = 1.2;  % Voltaje para inhalación (0V - 1.2V)
+        EXHALE_THRESHOLD = 1.2;  % Voltaje para exhalación (1.2V - 3.3V)
+        lastBreathState = 1;     % 2: inhalando, 1: neutral, 0: exhalando
+        
+        % Conteo de respiraciones
+        breathCount = 0;
+        lastBreathTime = 0;
+        
+        % UI Elements
+        warningText;  % Texto de advertencia en GUI
+        warningImage; % Imagen de advertencia
+        imageAxes;    % Axes para la imagen
     end
     
     methods
@@ -55,7 +69,7 @@ classdef STM32VoltageMonitor < handle
         
         function createUI(obj)
             % Crear figura y controles
-            obj.fig = figure('Name', 'Biofeedback', ...
+            obj.fig = figure('Name', 'Monitor de Respiración', ...
                 'NumberTitle', 'off', ...
                 'Position', [100 100 1000 600], ...
                 'CloseRequestFcn', @(src,event)obj.closeFigure());
@@ -63,95 +77,41 @@ classdef STM32VoltageMonitor < handle
             % Área de gráfica
             obj.ax = axes('Parent', obj.fig, ...
                 'Position', [0.3 0.1 0.65 0.8]);
-            title(obj.ax, 'Lectura de Voltaje en Tiempo Real');
-            xlabel(obj.ax, 'Número de Muestra');
-            ylabel(obj.ax, 'Voltaje (V)');
+            title(obj.ax, 'Patrón de Respiración');
+            xlabel(obj.ax, 'Tiempo (s)');
+            ylabel(obj.ax, 'Estado Respiración');
             grid(obj.ax, 'on');
-            ylim(obj.ax, [0 3.5]);
+            ylim(obj.ax, [-0.5 1.5]);
+            yticks([0 1]);
+            yticklabels({'Exhalación', 'Inhalación'});
             
             % Línea inicial
             obj.linePlot = line(obj.ax, NaN, NaN, ...
                 'Color', 'b', ...
                 'LineWidth', 2);
             
-            % Controles
-            uicontrol('Style', 'text', ...
-                'Position', [50 500 150 20], ...
-                'String', 'Tiempo de muestreo (s):', ...
-                'HorizontalAlignment', 'left');
+            % Agregar texto de advertencia (inicialmente invisible)
+            obj.warningText = uicontrol('Style', 'text', ...
+                'Position', [50 550 200 30], ...
+                'String', '¡Cálmate parce, respira más despacio!', ...
+                'BackgroundColor', 'red', ...
+                'ForegroundColor', 'white', ...
+                'FontSize', 12, ...
+                'Visible', 'off');
             
-            timerEdit = uicontrol('Style', 'edit', ...
-                'Position', [50 480 150 20], ...
-                'String', '0.1', ...
-                'Callback', @(src,~)obj.setTimer(src.String));
+            % Crear axes para la imagen
+            obj.imageAxes = axes('Parent', obj.fig, ...
+                'Position', [0.05 0.6 0.2 0.2], ... % Ajusta estas coordenadas según necesites
+                'Visible', 'off');
             
-            uicontrol('Style', 'pushbutton', ...
-                'Position', [50 450 150 25], ...
-                'String', 'Configurar Muestreo', ...
-                'Callback', @(src,event)obj.setTimer(timerEdit.String));
-            
-            uicontrol('Style', 'text', ...
-                'Position', [50 400 150 20], ...
-                'String', 'Número de muestras:', ...
-                'HorizontalAlignment', 'left');
-            
-            samplesEdit = uicontrol('Style', 'edit', ...
-                'Position', [50 380 150 20], ...
-                'String', '10', ...
-                'Callback', @(src,~)obj.setSamples(src.String));
-            
-            uicontrol('Style', 'pushbutton', ...
-                'Position', [50 350 150 25], ...
-                'String', 'Configurar Muestras', ...
-                'Callback', @(src,event)obj.setSamples(samplesEdit.String));
-            
-            % Información
-            uicontrol('Style', 'text', ...
-                'Position', [50 250 200 80], ...
-                'String', sprintf(['Configuración:\n', ...
-                                  '- Timer: ARR fijo = 15999\n', ...
-                                  '- PSC calculado automáticamente\n', ...
-                                  '- Muestras: enteros > 0']), ...
-                'HorizontalAlignment', 'left');
-        end
-        
-        function psc = calculatePSC(obj, timeSeconds)
+            % Cargar y configurar la imagen
             try
-                timeSeconds = str2double(timeSeconds);
-                if timeSeconds <= 0
-                    psc = 0;
-                    return;
-                end
-                psc = (obj.CLOCK_FREQ / ((obj.DEFAULT_ARR + 1) * (1/timeSeconds))) - 1;
-                psc = ceil(psc);
+                img = imread('images/calmate.png'); % Asegúrate de tener esta imagen en la carpeta
+                obj.warningImage = image(obj.imageAxes, img);
+                axis(obj.imageAxes, 'off');
+                obj.imageAxes.Visible = 'off';
             catch
-                psc = 0;
-            end
-        end
-        
-        function setTimer(obj, timeSeconds)
-            psc = obj.calculatePSC(timeSeconds);
-            if psc > 0
-                cmd = sprintf('P%d,%d\n', obj.DEFAULT_ARR, psc);
-                obj.sendCommand(cmd);
-                disp(['Configurado tiempo de muestreo: ' cmd]);
-            else
-                errordlg('Tiempo de muestreo no válido', 'Error');
-            end
-        end
-        
-        function setSamples(obj, samples)
-            try
-                m = str2double(samples);
-                if m > 0
-                    cmd = sprintf('M%d\n', m);
-                    obj.sendCommand(cmd);
-                    disp(['Configurado número de muestras: ' cmd]);
-                else
-                    errordlg('Número de muestras debe ser > 0', 'Error');
-                end
-            catch
-                errordlg('Número de muestras no válido', 'Error');
+                warning('No se pudo cargar la imagen de advertencia');
             end
         end
         
@@ -173,8 +133,37 @@ classdef STM32VoltageMonitor < handle
             % Actualizar gráfica si hay nuevos datos
             if obj.lastVolt ~= 0
                 obj.sampleCount = obj.sampleCount + 1;
+                
+                % Determinar estado de respiración y asignar valor por defecto
+                breathState = 0; % Por defecto es exhalación
+                
+                if obj.lastVolt < obj.INHALE_THRESHOLD
+                    breathState = 1; % Inhalación (arriba, cuando voltaje < 1.2V)
+                    if obj.lastBreathState ~= 1  % Solo contar al cambiar a inhalación
+                        currentTime = now * 24 * 3600;  % Tiempo actual en segundos
+                        if currentTime - obj.lastBreathTime <= 1  % Si pasó menos de 1 segundo
+                            obj.breathCount = obj.breathCount + 1;
+                        else  % Si pasó más de 1 segundo, reiniciar conteo
+                            obj.breathCount = 1;
+                        end
+                        obj.lastBreathTime = currentTime;
+                        
+                        % Mostrar advertencia si respira muy rápido
+                        if obj.breathCount > 5
+                            set(obj.warningText, 'Visible', 'on');
+                            obj.imageAxes.Visible = 'on';
+                        else
+                            set(obj.warningText, 'Visible', 'off');
+                            obj.imageAxes.Visible = 'off';  % Removed extra parenthesis here
+                        end
+                    end
+                end
+                
+                obj.lastBreathState = breathState;
+                
+                % Actualizar puntos de la gráfica
                 obj.timePoints(end+1) = obj.sampleCount;
-                obj.voltPoints(end+1) = obj.lastVolt;
+                obj.voltPoints(end+1) = breathState;
                 
                 % Mantener el tamaño máximo del buffer
                 if length(obj.timePoints) > obj.maxPoints + obj.scrollMargin
@@ -185,8 +174,15 @@ classdef STM32VoltageMonitor < handle
                 % Actualizar línea de la gráfica
                 set(obj.linePlot, 'XData', obj.timePoints, 'YData', obj.voltPoints);
                 
+                % Actualizar estado de respiración
+                if breathState == 1
+                    estado = 'Inhalando';
+                else
+                    estado = 'Exhalando';
+                end
+                
                 % Actualizar leyenda
-                legend(obj.ax, sprintf('Voltaje: %.3f V', obj.lastVolt));
+                legend(obj.ax, sprintf('Estado: %s (%.2fV)', estado, obj.lastVolt));
                 
                 % Ajustar límites si es necesario
                 if obj.sampleCount > obj.startScroll

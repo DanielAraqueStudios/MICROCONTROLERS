@@ -13,7 +13,7 @@ char distanciaStr[20];         // Para almacenar el valor formateado de la dista
 volatile double volt_1 = 0;
 volatile double volt_1_mV = 0;
 
-int Muestra1 = 1;  // Valor por defecto para evitar división por cero
+int Muestra1 = 10;  // Valor por defecto para evitar división por cero
 
 volatile double VoltajeProm1 = 0;
 volatile double SumaVoltaje1 = 0;
