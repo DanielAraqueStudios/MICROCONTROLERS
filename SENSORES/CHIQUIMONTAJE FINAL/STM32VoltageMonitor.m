@@ -41,6 +41,7 @@ classdef STM32VoltageMonitor < handle
         warningText;  % Texto de advertencia en GUI
         warningImage; % Imagen de advertencia
         imageAxes;    % Axes para la imagen
+        voltageText;  % Texto para mostrar el voltaje actual
     end
     
     methods
@@ -114,6 +115,14 @@ classdef STM32VoltageMonitor < handle
             catch
                 warning('No se pudo cargar la imagen de advertencia');
             end
+            
+            % Agregar texto para mostrar voltaje (después del warningText)
+            obj.voltageText = uicontrol('Style', 'text', ...
+                'Position', [50 500 200 30], ...
+                'String', 'Voltaje: 0.00 V', ...
+                'BackgroundColor', 'white', ...
+                'FontSize', 12, ...
+                'Visible', 'on');
         end
         
         function sendCommand(obj, cmd)
@@ -187,6 +196,9 @@ classdef STM32VoltageMonitor < handle
                 
                 % Actualizar leyenda - solo mostrar estado sin voltaje
                 legend(obj.ax, sprintf('Estado: %s', estado));
+                
+                % Actualizar display de voltaje
+                set(obj.voltageText, 'String', sprintf('Voltaje: %.2f V', obj.lastVolt));
                 
                 % Ajustar límites si es necesario
                 if obj.sampleCount > obj.startScroll
