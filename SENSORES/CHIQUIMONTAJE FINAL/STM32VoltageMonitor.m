@@ -32,11 +32,19 @@ classdef STM32VoltageMonitor < handle
         VOLT_RANGE_MIN = 0.0;    % Voltaje mínimo absoluto
         VOLT_RANGE_MAX = 3.3;    % Voltaje máximo absoluto
         VOLT_THRESHOLD = 1.15;   % Umbral entre inhalación y exhalación
+        GRAPH_MIN = -2.0;        % Límite inferior de la gráfica
+        GRAPH_MAX = 0;           % Límite superior de la gráfica
         
         % UI Elements
         warningText;  % Texto de advertencia en GUI
         warningImage; % Imagen de advertencia
         imageAxes;    % Axes para la imagen
+        
+        % UI Elements para animación de respiración
+        circleAx;      % Axes para el círculo de respiración
+        circleHandle;  % Handle para el círculo
+        baseRadius = 50; % Radio base del círculo
+        maxScale = 1.5; % Escala máxima de expansión
     end
     
     methods
@@ -72,16 +80,14 @@ classdef STM32VoltageMonitor < handle
             
             % Área de gráfica
             obj.ax = axes('Parent', obj.fig, ...
-                'Position', [0.3 0.1 0.65 0.8]);
+                'Position', [0.3 0.4 0.65 0.55]);
             title(obj.ax, 'Patrón de Respiración');
             xlabel(obj.ax, 'Tiempo (s)');
-            ylabel(obj.ax, 'Voltaje (V)');
+            ylabel(obj.ax, 'Estado');
             grid(obj.ax, 'on');
-            ylim(obj.ax, [obj.VOLT_RANGE_MIN obj.VOLT_RANGE_MAX]);
-            % Puntos medios para inhalación y exhalación
-            yticks([obj.VOLT_RANGE_MIN + obj.VOLT_THRESHOLD/2, ...
-                    obj.VOLT_THRESHOLD + (obj.VOLT_RANGE_MAX-obj.VOLT_THRESHOLD)/2]);
-            yticklabels({'Inhalación', 'Exhalación'});
+            ylim(obj.ax, [obj.GRAPH_MIN obj.GRAPH_MAX]);  % Zoom ajustado
+            yticks([-1.5 -0.5]);  % Marcas en Y ajustadas
+            yticklabels({'Exhalación', 'Inhalación'});
             
             % Línea inicial
             obj.linePlot = line(obj.ax, NaN, NaN, ...
@@ -111,6 +117,29 @@ classdef STM32VoltageMonitor < handle
             catch
                 warning('No se pudo cargar la imagen de advertencia');
             end
+            
+            % Crear axes para el círculo de respiración
+            obj.circleAx = axes('Parent', obj.fig, ...
+                'Position', [0.4 0.05 0.45 0.25], ... % Debajo de la gráfica principal
+                'XLim', [-100 100], ...
+                'YLim', [-100 100]);
+            axis(obj.circleAx, 'equal');
+            axis(obj.circleAx, 'off');
+            
+            % Crear círculo inicial
+            theta = linspace(0, 2*pi, 100);
+            x = obj.baseRadius * cos(theta);
+            y = obj.baseRadius * sin(theta);
+            obj.circleHandle = fill(obj.circleAx, x, y, 'b', ...
+                'FaceAlpha', 0.3, ...
+                'EdgeColor', [0.2 0.6 1], ...
+                'LineWidth', 2);
+            
+            % Añadir texto guía
+            text(obj.circleAx, 0, -80, 'Respira con el círculo', ...
+                'HorizontalAlignment', 'center', ...
+                'FontSize', 12, ...
+                'Color', [0.2 0.6 1]);
         end
         
         function sendCommand(obj, cmd)
@@ -139,9 +168,10 @@ classdef STM32VoltageMonitor < handle
                     estado = 'Exhalando';
                 end
                 
-                % Actualizar puntos de la gráfica con el voltaje real
+                % Actualizar puntos de la gráfica con el voltaje real invertido y escalado
                 obj.timePoints(end+1) = obj.sampleCount;
-                obj.voltPoints(end+1) = obj.lastVolt;
+                scaledVolt = -1 * (obj.lastVolt - obj.VOLT_THRESHOLD) - 0.5;  % Centrar y escalar
+                obj.voltPoints(end+1) = scaledVolt;
                 
                 % Mantener el tamaño máximo del buffer
                 if length(obj.timePoints) > obj.maxPoints + obj.scrollMargin
@@ -169,6 +199,24 @@ classdef STM32VoltageMonitor < handle
                 else
                     xlim(obj.ax, [1, obj.maxPoints]);
                 end
+                
+                % Actualizar animación del círculo
+                scale = 1;
+                if estado == 'Inhalando'
+                    % Expandir círculo basado en el voltaje
+                    scale = 1 + (obj.VOLT_THRESHOLD - obj.lastVolt) / ...
+                           obj.VOLT_THRESHOLD * (obj.maxScale - 1);
+                else
+                    % Contraer círculo
+                    scale = 1 + (obj.lastVolt - obj.VOLT_THRESHOLD) / ...
+                           (obj.VOLT_RANGE_MAX - obj.VOLT_THRESHOLD) * (1 - 1/obj.maxScale);
+                end
+                
+                % Actualizar tamaño del círculo
+                theta = linspace(0, 2*pi, 100);
+                x = obj.baseRadius * scale * cos(theta);
+                y = obj.baseRadius * scale * sin(theta);
+                set(obj.circleHandle, 'XData', x, 'YData', y);
             end
         end
         
