@@ -29,8 +29,10 @@ classdef STM32VoltageMonitor < handle
         updateTimer;
         
         % Umbrales de respiración
-        VOLT_MIN = 1.0;  % Voltaje mínimo esperado
-        VOLT_MAX = 1.3;  % Voltaje máximo esperado
+        INHALE_MIN = 0.0;    % Voltaje mínimo para inhalación
+        INHALE_MAX = 1.15;   % Voltaje máximo para inhalación
+        EXHALE_MIN = 1.15;   % Voltaje mínimo para exhalación
+        EXHALE_MAX = 3.3;    % Voltaje máximo para exhalación
         lastBreathState = 0;
         
         % Conteo de respiraciones
@@ -82,10 +84,10 @@ classdef STM32VoltageMonitor < handle
             xlabel(obj.ax, 'Tiempo (s)');
             ylabel(obj.ax, 'Estado');
             grid(obj.ax, 'on');
-            ylim(obj.ax, [0.9 1.4]);  % Rango del voltaje con márgenes
-            % Cambiar etiquetas del eje Y
-            yticks([1.0 1.3]);  % Solo mostrar dos niveles
-            yticklabels({'Exhalación', 'Inhalación'});
+            ylim(obj.ax, [0 3.5]);  % Rango del voltaje ajustado
+            yticks([obj.INHALE_MIN + (obj.INHALE_MAX-obj.INHALE_MIN)/2, ...
+                   obj.EXHALE_MIN + (obj.EXHALE_MAX-obj.EXHALE_MIN)/2]);  % Puntos medios
+            yticklabels({'Inhalación', 'Exhalación'});
             
             % Línea inicial
             obj.linePlot = line(obj.ax, NaN, NaN, ...
@@ -144,9 +146,18 @@ classdef STM32VoltageMonitor < handle
             if obj.lastVolt ~= 0
                 obj.sampleCount = obj.sampleCount + 1;
                 
-                % Actualizar puntos de la gráfica con el voltaje real invertido
+                % Determinar estado de respiración basado en rangos de voltaje
+                if obj.lastVolt >= obj.INHALE_MIN && obj.lastVolt < obj.INHALE_MAX
+                    breathState = 1; % Inhalación
+                    estado = 'Inhalando';
+                elseif obj.lastVolt >= obj.EXHALE_MIN && obj.lastVolt <= obj.EXHALE_MAX
+                    breathState = 0; % Exhalación
+                    estado = 'Exhalando';
+                end
+                
+                % Actualizar puntos de la gráfica
                 obj.timePoints(end+1) = obj.sampleCount;
-                obj.voltPoints(end+1) = -1 * obj.lastVolt + 2.3; % Invertir y ajustar offset
+                obj.voltPoints(end+1) = breathState;
                 
                 % Detectar inhalación/exhalación basado en tendencia
                 if length(obj.voltPoints) > 1
