@@ -1,0 +1,23 @@
+% Datos simulados (Iluminancia E vs. Vout)
+E = [0.1, 1, 10, 100, 1000, 10000]; % lux
+Vout = [0.10, 0.80, 2.40, 3.10, 3.25, 3.30]; % V
+
+% Gráfica en escala semilogarítmica (E en log, Vout lineal)
+figure;
+semilogx(E, Vout, 'bo-', 'LineWidth', 1.5, 'MarkerSize', 8);
+grid on;
+
+% Leyendas y ejes
+xlabel('Iluminancia (lux)', 'FontSize', 12);
+ylabel('Voltaje de salida (V)', 'FontSize', 12);
+title('Respuesta de la LDR: Vout vs. Iluminancia', 'FontSize', 14);
+
+% Añadir texto descriptivo
+text(0.2, 0.5, 'Oscuridad', 'FontSize', 10);
+text(1000, 3.2, 'Luz intensa', 'FontSize', 10);
+
+% Ajustar ejes
+xlim([0.1, 10000]);
+ylim([0, 3.5]);
+set(gca, 'XTick', [0.1 1 10 100 1000 10000]);
+set(gca, 'YTick', 0:0.5:3.5);
