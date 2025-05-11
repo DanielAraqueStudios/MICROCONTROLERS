@@ -1,0 +1,265 @@
+	#include <stdio.h>
+#include <stm32f7xx.h>
+#define FREQTRAB 16000000
+//MPU
+#define MPU6050_ADDR         0x68 
+#define MPU6050_SMPLRT_DIV   0x19 
+#define MPU6050_CONFIG       0x1A
+#define MPU6050_GYRO_CONFIG  0x1B
+#define MPU6050_ACCEL_CONFIG 0x1C
+#define MPU6050_WHO_AM_I     0x75
+#define MPU6050_PWR_MGMT_1   0x6B
+
+
+
+int rx_data[1];
+int tx_data[2];
+int setup_ok,raw_adc=0;
+void DBG_Pins(void);
+void INIT_I2C(void);
+void SysTick_Init(void);
+void SysTick_Wait(uint32_t n);
+void SysTick_Wait1ms(uint32_t delay);
+int	I2C1_Lee(int direccion, int reg_dir, int *buffer, int nbytes );
+int	I2C1_Escribe( int direccion, int reg_dir, int *buffer, int nbytes );
+unsigned int data[2];
+volatile int W_OK,R_OK;
+void configMPU(void);
+int16_t accum;
+double raw_acc_x;
+int main(void)
+{ 
+	SysTick_Init();
+	INIT_I2C();
+	SysTick_Wait1ms(1000);
+	configMPU();
+	SysTick_Wait1ms(1000);
+	setup_ok=1;
+	
+	while(1)
+	{
+
+	
+// LEER DATOS MPU
+
+accum=0;
+I2C1_Lee(MPU6050_ADDR, 0x3B, rx_data, 1);
+accum = rx_data[0]<<8;
+SysTick_Wait1ms(100);	
+I2C1_Lee(MPU6050_ADDR, 0x3C, rx_data, 1);	
+accum += rx_data[0];
+SysTick_Wait1ms(100);
+raw_acc_x = accum/16384.0;	
+SysTick_Wait1ms(100);
+
+
+}
+	}
+
+	
+	
+	
+void INIT_I2C(){
+RCC->AHB1ENR|=RCC_AHB1ENR_GPIOBEN;
+
+GPIOB->MODER |= (2<<16) | (2<<18);
+GPIOB->OTYPER|= (1<<8) | (1<<9);
+GPIOB->PUPDR|= (1<<16) | (1<<18);
+GPIOB->OSPEEDR |= (3<<16) | (3<<18);
+GPIOB->AFR[1] |= (4<<0) | (4<<4);
+RCC->DCKCFGR2 |= (2<<16);
+	
+RCC->APB1ENR|=RCC_APB1ENR_I2C1EN;
+I2C1->CR1 &= ~I2C_CR1_PE;
+I2C1->CR1 	  = 0x00000000;		
+I2C1->CR2 	  = 0x00000000;
+I2C1->TIMINGR = 0x00000000;	
+I2C1->TIMINGR |= 0x205A1819;
+// Enable I2C1
+	I2C1->CR1 |= I2C_CR1_PE;
+}
+
+
+void DBG_Pins(){
+RCC->AHB1ENR|=RCC_AHB1ENR_GPIOAEN;
+GPIOA->MODER |= (1<<0) | (1<<2)| (1<<4);
+}
+void SysTick_Init(void){
+  SysTick->LOAD = 0x00FFFFFF;
+	SysTick->CTRL = 0x00000005;
+}
+
+void SysTick_Wait(uint32_t n){
+  SysTick->LOAD = n-1;
+	SysTick->VAL = 0;
+	while((SysTick->CTRL&0x00010000)==0);
+}
+
+void SysTick_Wait1ms(uint32_t delay){
+ for(uint32_t i=0; i<delay; i++){
+ SysTick_Wait(FREQTRAB/1000);
+ }
+}
+int	I2C1_Lee(int direccion, int reg_dir, int *buffer, int nbytes ) {
+	uint32_t 	t_espera;
+	uint8_t		n;			// Contador para la lectura de los nbytes
+
+	// Dirección del dispositivo
+	I2C1->CR2 &= ~I2C_CR2_SADD_Msk;
+	I2C1->CR2 |= ((direccion <<1U) <<I2C_CR2_SADD_Pos);
+
+  // i2c Modo Escritura
+	I2C1->CR2 &= ~I2C_CR2_RD_WRN;
+
+	I2C1->CR2 &= ~I2C_CR2_NBYTES;
+	I2C1->CR2 |= (1 <<16U);
+	I2C1->CR2 &= ~I2C_CR2_AUTOEND;
+
+	// Iniciar charla I2C 
+	I2C1->CR2 |= I2C_CR2_START;
+
+	// Espera a TXIS o se sale del while y devuelve un 1
+	// SI devuelve 1 significa que no se inicio la charla
+	t_espera = 2000;
+	while (((I2C1->ISR) & I2C_ISR_TXIS) != I2C_ISR_TXIS)
+	{
+		t_espera--;
+		if (t_espera == 0) return 1;
+	}
+
+	// Envia la dirección del registro que se va a leer
+	I2C1->TXDR = reg_dir;
+
+	// Espera a TC o se sale del while y devuelve un 2
+	t_espera = 2000;
+	while (((I2C1->ISR) & I2C_ISR_TC) != I2C_ISR_TC)
+	{
+		t_espera--;
+		if (t_espera == 0) return 2;
+	}
+
+	// i2c en modo lectura
+	I2C1->CR2 |= I2C_CR2_RD_WRN;
+  
+	I2C1->CR2 &= ~I2C_CR2_NBYTES;
+	I2C1->CR2 |= (nbytes <<16U);
+	I2C1->CR2 &= ~I2C_CR2_AUTOEND;
+
+	// Se repite la condición de inicio para indicar que se leen
+	// nbytes
+	I2C1->CR2 |= I2C_CR2_START;
+
+	n = nbytes;
+
+	while (n>0)
+	{
+		// Espera a RXNE o se sale del while y devuelve un 3
+		t_espera = 2000;
+		while (((I2C1->ISR) & I2C_ISR_RXNE) != I2C_ISR_RXNE)
+		{
+			t_espera--;
+			if (t_espera == 0) return 3;
+		}
+
+		// Se guardan los datos en buffer.
+		// Buffer debe tener tantas posiciones como datos a leer
+		*buffer = I2C1->RXDR;
+		buffer++;
+		n--;
+	}
+
+	// para i2c
+	I2C1->CR2 |= I2C_CR2_STOP;
+
+	// Espera a STOPF o se sale del while y devuelve un 4
+	t_espera = 2000;
+	while (((I2C1->ISR) & I2C_ISR_STOPF) != I2C_ISR_STOPF)
+	{
+		t_espera--;
+		if (t_espera == 0) return 4;
+	}
+
+	// Todo OK, todo correcto y yo retorno 0.
+	return 0;
+}
+
+
+
+int	I2C1_Escribe( int direccion, int reg_dir, int *buffer, int nbytes ){
+	uint32_t 	t_espera;	// t_espera
+	uint8_t		n;		// Contador para la lectura de datos
+
+	// Dirección del esclavo
+	I2C1->CR2 &= ~I2C_CR2_SADD_Msk;
+	I2C1->CR2 |= ((direccion <<1) <<I2C_CR2_SADD_Pos);
+
+	// i2c modo escritura
+	I2C1->CR2 &= ~I2C_CR2_RD_WRN;
+	I2C1->CR2 &= ~I2C_CR2_NBYTES;
+	I2C1->CR2 |= ((nbytes+1) <<16);
+	I2C1->CR2 |= I2C_CR2_AUTOEND;
+
+	// Limpiar bandera de STOP, por si acaso
+	I2C1->ICR |= I2C_ICR_STOPCF;
+
+	// iniciar i2c
+	I2C1->CR2 |= I2C_CR2_START;
+
+	// Espera lla bandera TXIS o que se acabe el tiempo de espera
+	t_espera = 2000;
+	while (((I2C1->ISR) & I2C_ISR_TXIS) != I2C_ISR_TXIS)
+	{
+		t_espera--;
+		if (t_espera == 0) return 1;
+	}
+
+	// Dirección del registro que se quiere modificar
+	I2C1->TXDR = reg_dir;
+
+	n = nbytes;
+
+	while(n>0)
+	{
+		// Espera la bandera TXIS o que se acabe el tiempo de espera
+		t_espera = 2000;
+		while (((I2C1->ISR) & I2C_ISR_TXIS) != I2C_ISR_TXIS)
+		{
+			t_espera--;
+			if (t_espera == 0) return 2;
+		}
+
+		// Se envian los datos en el array llamado buffer
+		I2C1->TXDR = *buffer;
+		buffer++;
+		n--; // La n que cuenta el numero de datos
+	}
+
+	// Hasta que este STOPF o se cumpla el t_espera
+	t_espera = 2000;
+	while (((I2C1->ISR) & I2C_ISR_STOPF) != I2C_ISR_STOPF)
+	{
+		t_espera--;
+		if (t_espera == 0) return 3;
+	}
+
+	// Si todo sale bien seria 0
+	return 0;
+}
+
+void configMPU(void){
+	tx_data[0]=0x00;
+	I2C1_Escribe(MPU6050_ADDR, MPU6050_SMPLRT_DIV, tx_data, 1);	
+	
+	tx_data[0]=0x00;
+	I2C1_Escribe(MPU6050_ADDR, MPU6050_CONFIG, tx_data, 1);	
+	
+	tx_data[0]=0x08;
+	I2C1_Escribe(MPU6050_ADDR, MPU6050_GYRO_CONFIG, tx_data, 1);	
+	
+	tx_data[0]=0x00;
+	I2C1_Escribe(MPU6050_ADDR, MPU6050_ACCEL_CONFIG, tx_data, 1);		
+	
+	tx_data[0]=0x01;
+	I2C1_Escribe(MPU6050_ADDR, MPU6050_PWR_MGMT_1, tx_data, 1);	
+	
+	}
