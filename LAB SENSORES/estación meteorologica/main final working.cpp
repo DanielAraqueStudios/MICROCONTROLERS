@@ -13,8 +13,11 @@ unsigned char d;
 char text[30];  // Aumentado a 30 caracteres
 uint16_t digital2;
 uint16_t digital1;
+uint16_t digital3;
+
 float voltaje1;  // Añadida declaración
 float voltaje2;
+float voltaje3;
 uint32_t a, b, c;
 
 void SysTick_Wait(uint32_t n){
@@ -125,6 +128,19 @@ int main(){
     ADC1->SQR3 &= ~(0b11111<<0); 
     ADC1->SQR3 |= (0b00000<<0); //ch10
 
+    //ADC3
+    RCC->AHB1ENR |= (1<<5);         // Habilita GPIOF PORT F3 CH 9
+    GPIOF->MODER |= (0b11<<6);      // PF3 como analógico
+    GPIOF->PUPDR|=(1<<7); //PF3 as pull down mode
+    RCC->APB2ENR |= (1<<10);        // Habilita reloj ADC3
+    ADC->CCR |= (0b11<<16);         // F=32MHz
+    ADC3->CR2 |= (1<<0);            // Enciende ADC3
+    ADC3->CR2 |= (1<<10);           // EOC después de cada conversión
+    ADC3->CR1 &= ~(0b11<<24);       // Resolución 12 bits
+    ADC3->SMPR2 |= (0b111<<0);      // 480 CYCLES
+    ADC3->SQR3 &= ~(0b11111<<0);
+    ADC3->SQR3 |= (0b01001<<0); //ch9
+
     //TIMER
     RCC->APB1ENR |= (1<<1); //Enable the TIMER3 clock 
     TIM3->PSC = 24; // Prescale factor 25 for 100ms of time
@@ -165,6 +181,22 @@ int main(){
             USART3->TDR = text[i]; 
             while(((USART3->ISR & 0x80) >> 7) == 0){}
         }
+
+
+        // ADC3 (PF3)
+        ADC3->CR2 |= (1<<30);   
+        while(((ADC3->SR & (1<<1)) >> 1) == 0){}
+        ADC3->SR &= ~(1<<1);
+        digital3 = ADC3->DR;
+        voltaje3 = (float)digital3*(3.3/4096.0);
+        sprintf(text,"ADC3: %.2fV\r\n", voltaje3);
+        for(i=0; i<strlen(text); i++){
+            USART3->TDR = text[i]; 
+            while(((USART3->ISR & 0x80) >> 7) == 0){}
+        }
+
+        
+       
         
         SysTick_ms(100);  // Delay entre lecturas
     }
