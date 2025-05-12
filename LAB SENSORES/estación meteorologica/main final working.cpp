@@ -1,8 +1,3 @@
-//Ejemplo TIMER
-//Fabián Barrera Prieto
-//Universidad ECCI
-//STM32F767ZIT6U
-//operation 'or' (|) for set bit and operation 'and' (&) for clear bit
 
 #include <stdio.h>
 #include "stm32f7xx.h"
