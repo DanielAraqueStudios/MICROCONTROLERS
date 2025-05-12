@@ -14,6 +14,8 @@ char text[30];  // Aumentado a 30 caracteres
 uint16_t digital2;
 uint16_t digital1;
 uint16_t digital3;
+uint16_t pulsos = 0;
+float frecuencia = 0;
 
 float voltaje1;  // Añadida declaración
 float voltaje2;
@@ -61,6 +63,12 @@ extern "C"{
                 flag = 1;
             }
         }
+    }
+    
+    void TIM2_IRQHandler(void){
+        TIM2->SR &= ~(1<<0);  // Clear flag
+        frecuencia = (float)TIM3->CNT;  // Leer conteo
+        TIM3->CNT = 0;  // Reset contador
     }
 }
 
@@ -152,6 +160,31 @@ int main(){
     //UART
     USART3->CR1 |= (1<<0);
 
+    // Configuración PB5 como entrada de frecuencia
+    RCC->AHB1ENR |= (1<<1);  // GPIOB clock
+    GPIOB->MODER &= ~(3<<10);  // Clear PB5
+    GPIOB->MODER |= (2<<10);   // Alternate Function
+    GPIOB->AFR[0] &= ~(0xF<<20);  // Clear AF
+    GPIOB->AFR[0] |= (2<<20);     // AF2 (TIM3_CH2)
+
+    // Timer3 como contador de pulsos externos
+    RCC->APB1ENR |= (1<<1);    // TIM3 clock
+    TIM3->PSC = 0;             // Sin preescaler
+    TIM3->ARR = 0xFFFF;        // Máximo conteo
+    TIM3->CCMR1 |= (1<<8);     // CC2 como entrada
+    TIM3->CCER |= (1<<4);      // Captura en CH2 habilitada
+    TIM3->SMCR |= (0b111<<0);  // External Clock Mode 1
+    TIM3->SMCR |= (0b110<<4);  // TI2FP2 como entrada
+    TIM3->CR1 |= (1<<0);       // Enable counter
+
+    // Timer2 para base de tiempo 1 segundo
+    RCC->APB1ENR |= (1<<0);    // TIM2 clock
+    TIM2->PSC = 15999;         // 16MHz/16000 = 1kHz
+    TIM2->ARR = 999;           // 1kHz/1000 = 1Hz (1 segundo)
+    TIM2->DIER |= (1<<0);      // Interrupt enable
+    TIM2->CR1 |= (1<<0);       // Enable counter
+    NVIC_EnableIRQ(TIM2_IRQn);
+
     while(1){
         GPIOB->ODR |= 1<<0; 
         SysTick_ms(500);
@@ -192,6 +225,13 @@ int main(){
         sprintf(text,"ADC3: %.2fV\r\n", voltaje3);
         for(i=0; i<strlen(text); i++){
             USART3->TDR = text[i]; 
+            while(((USART3->ISR & 0x80) >> 7) == 0){}
+        }
+
+        // Enviar frecuencia
+        sprintf(text,"Freq: %.1f Hz\r\n", frecuencia);
+        for(i=0; i<strlen(text); i++){
+            USART3->TDR = text[i];
             while(((USART3->ISR & 0x80) >> 7) == 0){}
         }
 
