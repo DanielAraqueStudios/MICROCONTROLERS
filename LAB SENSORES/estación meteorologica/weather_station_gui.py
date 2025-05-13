@@ -97,7 +97,15 @@ class WeatherStation(QMainWindow):
         
         for member in team_members:
             member_label = QLabel(member)
-            member_label.setFont(QFont('Ubuntu Light', 12))
+            member_label.setFont(QFont('Ubuntu', 16, QFont.Weight.Bold))
+            member_label.setStyleSheet("""
+                color: #00ff00;
+                font-weight: bold;
+                padding: 5px;
+                background-color: rgba(26, 26, 26, 0.7);
+                border-radius: 5px;
+                margin: 2px;
+            """)
             team_layout.addWidget(member_label)
             
         team_layout.addStretch()
@@ -161,31 +169,101 @@ class WeatherStation(QMainWindow):
         self.clock_timer.start(1000)  # Update every second
         self.update_clock()  # Initial update
         
+        # Create all plots and gauges first
+        self.adc_plot1 = self.create_plot("ADC1 Voltage", "Time", "Voltage (V)")
+        self.adc_plot2 = self.create_plot("ADC2 Voltage", "Time", "Voltage (V)")
+        self.gauge_widget, self.gauge_bar = self.create_gauge("ADC3 Percentage")
+        self.freq_gauge, self.freq_bar = self.create_gauge("Frequency %")
+
         # Graphs widget
         graphs_widget = QWidget()
         graphs_layout = QHBoxLayout(graphs_widget)
         
-        # ADC plots
-        self.adc_plot1 = self.create_plot("ADC1 Voltage", "Time", "Voltage (V)")
-        self.adc_plot2 = self.create_plot("ADC2 Voltage", "Time", "Voltage (V)")
-        
+        # ADC plots section (70% del ancho)
         plots_layout = QVBoxLayout()
-        plots_layout.addWidget(self.adc_plot1)
-        plots_layout.addWidget(self.adc_plot2)
-        graphs_layout.addLayout(plots_layout)
         
-        # Gauges layout
+        # ADC1 plot y valor
+        adc1_container = QWidget()
+        adc1_layout = QVBoxLayout(adc1_container)
+        adc1_layout.addWidget(self.adc_plot1)
+        self.adc1_value_label = QLabel("ADC1: 0.00V")
+        self.adc1_value_label.setStyleSheet("""
+            color: #00ff00;
+            font-family: 'Ubuntu Mono';
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px;
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        """)
+        self.adc1_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        adc1_layout.addWidget(self.adc1_value_label)
+        plots_layout.addWidget(adc1_container)
+        
+        # ADC2 plot y valor
+        adc2_container = QWidget()
+        adc2_layout = QVBoxLayout(adc2_container)
+        adc2_layout.addWidget(self.adc_plot2)
+        self.adc2_value_label = QLabel("ADC2: 0.00V")
+        self.adc2_value_label.setStyleSheet("""
+            color: #00ff00;
+            font-family: 'Ubuntu Mono';
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px;
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        """)
+        self.adc2_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        adc2_layout.addWidget(self.adc2_value_label)
+        plots_layout.addWidget(adc2_container)
+
+        graphs_layout.addLayout(plots_layout, stretch=70)
+        
+        # Gauges layout con valores
         gauges_layout = QVBoxLayout()
         
-        # ADC3 percentage gauge
-        self.gauge_widget, self.gauge_bar = self.create_gauge("ADC3 Percentage")
-        gauges_layout.addWidget(self.gauge_widget)
+        # ADC3 gauge y valor
+        adc3_container = QWidget()
+        adc3_layout = QVBoxLayout(adc3_container)
+        adc3_layout.addWidget(self.gauge_widget)
+        self.adc3_value_label = QLabel("ADC3: 0.00V")
+        self.adc3_value_label.setStyleSheet("""
+            color: #00ff00;
+            font-family: 'Ubuntu Mono';
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px;
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        """)
+        self.adc3_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        adc3_layout.addWidget(self.adc3_value_label)
+        gauges_layout.addWidget(adc3_container)
         
-        # Frequency gauge
-        self.freq_gauge, self.freq_bar = self.create_gauge("Frequency %")
-        gauges_layout.addWidget(self.freq_gauge)
-        
-        graphs_layout.addLayout(gauges_layout)
+        # Frequency gauge y valor
+        freq_container = QWidget()
+        freq_layout = QVBoxLayout(freq_container)
+        freq_layout.addWidget(self.freq_gauge)
+        self.freq_value_label = QLabel("Frequency: 0.0 Hz")
+        self.freq_value_label.setStyleSheet("""
+            color: #00ff00;
+            font-family: 'Ubuntu Mono';
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px;
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        """)
+        self.freq_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        freq_layout.addWidget(self.freq_value_label)
+        gauges_layout.addWidget(freq_container)
+
+        graphs_layout.addLayout(gauges_layout, stretch=30)
         
         layout.addWidget(graphs_widget)
         
@@ -279,8 +357,11 @@ class WeatherStation(QMainWindow):
         gauge.setTitle(title, color='#00ff00')
         gauge.setRange(yRange=(0, 100))
         gauge.hideAxis('bottom')
-        bar = pg.BarGraphItem(x=[0], height=[0], width=0.6, brush='#00ff00')
+        # Hacer la barra más estrecha (width=0.3 en lugar de 0.6)
+        bar = pg.BarGraphItem(x=[0], height=[0], width=0.3, brush='#00ff00')
         gauge.addItem(bar)
+        # Ajustar el rango del eje X para centrar la barra
+        gauge.setRange(xRange=(-0.5, 0.5))
         return gauge, bar
 
     def update_ports(self):
@@ -353,25 +434,26 @@ class WeatherStation(QMainWindow):
                     self.adc1_data = np.roll(self.adc1_data, -1)
                     self.adc1_data[-1] = voltage
                     self.adc_plot1.plot(self.timestamps, self.adc1_data, clear=True, pen='b')
+                    self.adc1_value_label.setText(f"ADC1: {voltage:.2f}V")
                     
                 elif line.startswith("ADC2:"):
                     voltage = float(line.split(":")[1].replace("V", ""))
                     self.adc2_data = np.roll(self.adc2_data, -1)
                     self.adc2_data[-1] = voltage
                     self.adc_plot2.plot(self.timestamps, self.adc2_data, clear=True, pen='r')
+                    self.adc2_value_label.setText(f"ADC2: {voltage:.2f}V")
                     
                 elif line.startswith("ADC3:"):
                     voltage = float(line.split(":")[1].replace("V", ""))
                     percentage = (voltage / 3.3) * 100
                     self.gauge_bar.setOpts(height=[percentage])
+                    self.adc3_value_label.setText(f"ADC3: {voltage:.2f}V")
                     
                 elif line.startswith("Freq:"):
                     freq = float(line.split(":")[1].replace("Hz", ""))
-                    # Convertir frecuencia a porcentaje (máximo 65000Hz)
                     freq_percentage = min((freq / 65000.0) * 100, 100)
                     self.freq_bar.setOpts(height=[freq_percentage])
-                    # Actualizar el título con el valor actual y máximo
-                    self.freq_gauge.setTitle(f"Frequency: {freq:.1f}  ")
+                    self.freq_value_label.setText(f"Frequency: {freq:.1f} Hz")
                     
             except Exception as e:
                 print(f"Error parsing data: {e}")
