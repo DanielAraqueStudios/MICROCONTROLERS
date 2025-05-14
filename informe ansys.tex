@@ -1,0 +1,459 @@
+
+\documentclass{article}
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[bitstream-charter]{mathdesign}
+\usepackage{ragged2e}
+\usepackage{float}
+\usepackage{graphicx}
+
+
+\usepackage[table]{xcolor}
+\usepackage[spanish]{babel}%Paquete de caracteres y títulos en español
+\usepackage{anysize}%Paquete que permite cambiar márgenes
+\marginsize{0,9cm}{0,9cm}{2cm}{2cm}
+\usepackage{amsmath}%Paquete para insertar símbolos matemáticos
+\usepackage{hyperref}%Paquete para insertar referencias en el texto
+\usepackage{textcomp,gensymb}
+\usepackage{float}%Paquete para tratar figuras y tablas como flotantes
+\usepackage{lipsum}%Paquete para insertar texto mudo
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{url}%Paquete para insertar URL's
+\usepackage{multicol}%Paquete para crear ambientes multicolumna
+\setlength\columnsep{18pt}%Especifíca separación de las columnas
+\renewenvironment{abstract}%Modifica el ambientes abstract para modificar la alineación
+ {\par\noindent\textbf{\abstractname}\ \ignorespaces \\}
+ {\par\noindent\medskip}
+
+\graphicspath{ {./images/} }
+
+\usepackage[rightcaption]{sidecap}
+
+\usepackage{wrapfig}
+
+   
+
+
+\title{INFORME X}
+%-----------------------------------------------------------------------------------------------------------------------------------------
+
+\begin{document}
+
+\begin{center}
+\Large{Informe 2. Sensores Resistivos}
+\vspace{0.4cm}
+
+\normalsize
+Leonardo Montealegre, 
+Daniel García Araque.
+Andrès Fonseca
+
+
+\vspace{0.1cm}
+
+\normalsize
+est.leonardo.monte1@unimilitar.edu.co
+est.daniel.garciaa@unimilitar.edu.co,
+est.andres.mfonseca@unimilitar.edu.co
+
+\vspace{0.1cm}
+
+
+\textit{\small{UNIVERSIDAD MILITAR NUEVA GRANADA, FACULTAD DE INGENIERÍA }\\
+\small{INGENIERÍA MECATRÓNICA}}
+\medskip
+
+
+\normalsize
+\end{center}
+
+%-----------------------------------------------------------------------------------------------------------------------------------------
+\noindent
+\line(1,0){550}
+\begin{abstract}
+En este informe se detalla el diseño y construcción de un circuito de acondicionamiento de señal para dos sensores: una resistencia térmica Pt100 y una celda de carga. El objetivo principal es obtener una señal de salida dentro de un rango adecuado para su procesamiento, utilizando un puente de Wheatstone para la calibración de la Pt100 y un amplificador de instrumentación para amplificar la señal.Para la Pt100, se busca generar una salida en el rango de 1 V a 5 V para temperaturas entre 10 °C y 50 °C, mientras que para la celda de carga se acondiciona la señal para obtener una salida de corriente de 4 mA a 20 mA, correspondientes a los valores mínimo y máximo del rango de medición.
+
+\vspace{0.2cm}
+
+El desarrollo incluye los cálculos necesarios para el diseño del circuito, la caracterización de los sensores mediante la obtención de sus curvas de respuesta y la implementación práctica del diseño en un protoboard.
+
+\vspace{0.2cm}
+
+\textbf{Abstract}
+
+\vspace{0.2cm}
+
+This report details the design and construction of a signal conditioning circuit for two sensors: a Pt100 resistance temperature detector and a load cell. The main objective is to obtain an output signal within an appropriate range for processing, using a Wheatstone bridge for Pt100 calibration and an instrumentation amplifier to amplify the signal.For the Pt100, the goal is to generate an output ranging from 1 V to 5 V for temperatures between 10°C and 50°C, while for the load cell, the signal is conditioned to obtain a current output of 4 mA to 20 mA, corresponding to the minimum and maximum measurement values.
+
+\vspace{0.2cm}
+
+The development includes the necessary calculations for circuit design, sensor characterization through response curve acquisition, and the practical implementation of the design on a protoboard.
+
+
+\end{abstract}
+\line(1,0){549}
+\medskip
+
+%-----------------------------------------------------------------------------------------------------------------------------------------
+\begin{multicols}{2}
+%------------------------------------------------------------------------
+
+\section{Introducción}
+El propósito de este informe es analizar el funcionamiento de estos sensores dentro de los rangos definidos, describiendo el proceso de adquisición de datos, el acondicionamiento de señal y la implementación de comparadores para generar alertas. Se detallará la importancia de cada etapa del procesamiento de la señal y su impacto en la precisión y confiabilidad del sistema de medición. La Pt100 es un sensor de temperatura basado en la variación de resistencia con respecto a la temperatura, cuya señal de salida es de muy baja magnitud. Para su correcta calibración y medición, se implementa un puente de Wheatstone, el cual permite obtener un voltaje de referencia de 0 V a 0 °C, facilitando la linealización de la señal. Posteriormente, se emplea un amplificador de instrumentación para aumentar la señal a niveles adecuados para su procesamiento, seguido de un comparador que genera alertas en función de umbrales predefinidos.
+
+Por otro lado, la celda de carga, basada en galgas extensométricas, permite medir fuerzas a través de la variación de su resistencia eléctrica. Su señal también es de baja magnitud, por lo que requiere un circuito de acondicionamiento similar para obtener mediciones precisas y confiables.
+
+
+
+%--------------------------------------------------------------------------------
+\section{Marco Teórico}
+Pt100: Es un sensor de temperatura basado en una resistencia de platino que varía su valor con la temperatura. Su respuesta es prácticamente lineal dentro de ciertos rangos, y su precisión la hace ideal para mediciones industriales. Para obtener una señal útil, suele integrarse en un puente de Wheatstone, lo que permite detectar pequeñas variaciones de resistencia y convertirlas en voltaje.
+
+\vspace{0.2cm}
+
+Celda de carga: Se basa en galgas extensométricas adheridas a una estructura mecánica. Cuando se aplica una fuerza, la estructura se deforma, cambiando la resistencia de las galgas, lo que se traduce en una variación de voltaje. Este voltaje, al ser muy pequeño, necesita amplificación antes de su procesamiento.
+
+\vspace{0.2cm}
+
+Funcionamiento en el Informe
+Pt100: Se implementa en un puente de Wheatstone para obtener un voltaje de referencia de 0 V a 0 °C. Luego, se usa un amplificador de instrumentación para llevar la señal a un nivel utilizable (1 V a 5 V en el rango de 10 °C a 50 °C). Finalmente, un comparador genera alertas cuando la temperatura supera un umbral.
+
+\vspace{0.2cm}
+
+Celda de carga: Se implementa en otro puente de Wheatstone para obtener una señal diferencial. Posteriormente, un amplificador de instrumentación aumenta la señal para alcanzar un rango de salida de corriente de 4 mA a 20 mA, permitiendo su integración en sistemas de monitoreo y control.
+
+\vspace{0.2cm}
+
+.Caracterización de sensores: Se enfoca en determinar, con la mayor precisión posible, la ecuación característica que describe el comportamiento del sensor. Esta ecuación establece la relación entre la tasa de cambio de la variable de salida y la de entrada. Además, se analiza una variedad de conceptos fundamentales asociados a los sensores, como la linealidad, la zona muerta, la precisión, la confiabilidad, entre otros.[2]
+
+\vspace{0.2cm}
+
+.Curva de histéresis: Es la diferencia máxima que se observa en los valores de salida del sensor, cuando se recorre toda la escala de la magnitud física en dos sentidos ascendente y descendente.
+
+\vspace{0.2cm}
+
+.Linealidad: Es una expresión del grado en que la curva medida real se aleja de la curva ideal, expresada en porcentaje. 
+
+\vspace{0.2cm}
+
+.Sensibilidad: Medida de la capacidad del sensor para detectar pequeños cambios en la señal de entrada, donde se puede identificar mediante la pendiente de la curva característica de salida.
+
+\vspace{0.2cm}
+
+.El acondicionamiento de señal analógico es un conjunto de procesos diseñados para modificar una señal eléctrica proveniente de un sensor con el objetivo de mejorar su calidad, facilitar su procesamiento y garantizar su correcta interpretación por otros circuitos o dispositivos electrónicos. Este acondicionamiento es esencial en sistemas de medición y control, ya que los sensores generan señales que suelen ser muy débiles, ruidosas o no estar en el rango adecuado para su posterior procesamiento.
+
+\vspace{0.2cm}
+
+\section{Procedimiento}
+
+Para el desarrollo de esta práctica de laboratorio, se siguieron requisitos específicos para garantizar un adecuado funcionamiento del sistema de medición. Entre estos, se estableció que el sensor de temperatura Pt100 debía convertir temperaturas en el rango de 10 °C a 50 °C en voltajes comprendidos entre 1 V y 5 V tras el acondicionamiento de señal. Por otro lado, la celda de carga debía generar una señal de corriente en el rango de 4 mA a 20 mA, representando las fuerzas mínimas y máximas establecidas para la medición.
+
+\vspace{0.2cm}
+
+El procedimiento inició con la caracterización de los sensores dentro de sus rangos operativos. Para la Pt100, se realizó un análisis de su variación de resistencia con la temperatura, utilizando un puente de Wheatstone para ajustar el voltaje de referencia a 0 V a 0 °C. Posteriormente, se implementó un amplificador de instrumentación para amplificar la señal a un nivel adecuado, seguido de un comparador encargado de generar alertas cuando la temperatura superara un umbral predefinido.
+
+\vspace{0.2cm}
+
+En el sistema se hace necesario el acondicionamiento de una RTD (resistencia detectora de temperatura) para la medición de la temperatura del material pesado. Esta adecuación debe incluir una alarma de seguridad y alerta térmica por niveles altos y bajos. La salida de su acondicionamiento (Vout) debe ser de 3 V para una temperatura de 30 ºC y de 5 V para la máxima temperatura correspondiente a 50 ºC, indicando con una alerta cuando esta es inferior a 20 ºC y superior a 60 ºC. Se utilizará el display del voltímetro como unidad de indicación.
+
+\vspace{0.2cm}
+
+Para la celda de carga, se integró un circuito basado en un puente de Wheatstone para convertir los cambios de resistencia en una señal de voltaje diferencial. Luego, se empleó un amplificador de instrumentación para elevar la señal y finalmente se acondicionó para obtener una salida en corriente de 4 mA a 20 mA.
+
+\vspace{0.2cm}
+
+Durante el proceso, se realizaron mediciones y ajustes en el circuito para garantizar la linealidad de las señales obtenidas. Se utilizaron herramientas de simulación y software de procesamiento de datos para comparar las mediciones reales con los valores esperados, lo que permitió optimizar la calibración y mejorar la precisión de los sensores..
+
+\begin{figure}[H]
+   \centering 
+   \includegraphics[scale=0.35]{Compracacion de resistencia vs temperetarua pt100.jpg}
+   \caption{Grafica de histeresis}
+   \label{grafica1}
+\end{figure}
+
+En la imagen anterior se observa la curva de histéresis obtenida durante la caracterización del sensor Pt100. Esta curva se obtuvo mediante la comparación entre la curva ideal y la curva experimental del sensor. La discrepancia entre ambas se debe a errores instrumentales, los cuales influyen en la respuesta del sensor y generan una desviación con respecto al comportamiento ideal. Dichos errores pueden originarse por factores como tolerancias en los componentes electrónicos, ruido en las mediciones o variaciones en las condiciones de prueba.
+
+\vspace{0.2cm}
+Ecuacion de regresion (Crecimiento):
+
+\vspace{0.2cm}
+
+R= 1,8274T + 68,5625 
+\vspace{0.2cm}
+
+Ecuacion de regresion (Decrecimiento):
+
+\vspace{0.2cm}
+
+R= 1,2906T + 116,0400
+\vspace{0.2cm}
+
+Error porcentual promedio (Crecimineto): 39,23%
+
+\vspace{0.2cm}
+
+Error porcentual promedio (Decrecimineto): 54,88%
+
+\vspace{0.2cm}
+
+                      
+
+\vspace{0.3cm}
+
+\begin{figure}[H]
+   \centering 
+   \includegraphics[scale=0.35]{Curva de calibracion de la celda de carga.jpg}
+   \caption{Curva de Calibracion de la celda de carga}
+   \label{grafica1}
+\end{figure}
+
+Siguiendo los lineamientos establecidos, el equipo continuó con la simulación del circuito en un entorno de software especializado. Esta etapa permitió identificar y resolver posibles dudas antes de proceder con el montaje físico. Gracias a la simulación, se aseguró que el circuito funcionara correctamente, evitando contratiempos y reduciendo la necesidad de ajustes adicionales durante el montaje, cuya ecuación se muestra a continuación:
+
+\vspace{0.3cm}
+
+                     \(y=0.0051x-0.0020\)
+
+\vspace{0.4cm}
+Montaje Final
+
+\vspace{0.3cm}
+
+Con los datos obtenidos de la simulación y la caracterización, se procedió al montaje del circuito físico, el cual incluyó el amplificador necesario para acondicionar la señal del sensor. Este proceso permitió aplicar los conocimientos teóricos adquiridos en clase y validar su aplicación práctica. Finalmente, se verificó el correcto funcionamiento del circuito montado, cumpliendo con las especificaciones establecidas al inicio de la práctica.
+
+\vspace{0.5cm}
+
+
+Simulación
+
+\vspace{0.3cm}
+
+\begin{figure}[H]
+   \centering 
+   \includegraphics[scale=0.35]{Primer parte de la simulacion.jpg}
+   \caption{Primera parte de simulacion del circuito  }
+   \label{grafica1}
+\end{figure}
+\vspace{0.2cm}
+
+
+\begin{figure}[H]
+   \centering 
+   \includegraphics[scale=0.30]{segunda parte de la simulacion.jpg}
+   \caption{Segunda parte de simulacion del circuito }
+   \label{grafica1}
+\end{figure}
+\vspace{0.2cm}
+
+En la implementación y caracterización del sensor de temperatura, se empleó un puente de Wheatstone con una resistencia Pt100. Este circuito permitió obtener un voltaje de salida entre los puntos A y B, el cual, debido a su baja magnitud, requirió de una etapa de amplificación. Para ello, se utilizó un amplificador de instrumentación, ya que la diferencia de potencial generada en el puente resultó insuficiente para un procesamiento directo.
+
+\vspace{0.2cm}
+
+Posteriormente, se estableció un sistema de alarmas basado en los umbrales de temperatura definidos: 60°C, correspondiente a un voltaje de 6V, y 20°C, equivalente a 2V. Para cumplir con esta función, fue necesario calcular la resistencia de ganancia del amplificador, determinando así el nivel de amplificación requerido. En este caso, se empleó un amplificador de instrumentación AD620, cuya ganancia se ajustó mediante la ecuación correspondiente.
+
+\vspace{0.2cm}
+
+Además, se incorporaron dos amplificadores operacionales configurados como comparadores, los cuales evaluaron el voltaje amplificado y permitieron la activación de las alarmas en función de los límites establecidos. La correcta conexión del voltaje de referencia en las entradas del comparador resultó fundamental, ya que de ello dependía que el sistema respondiera a valores superiores o inferiores a los umbrales fijados.
+
+\vspace{0.3cm}
+
+Montaje
+\vspace{0.3cm}
+\begin{figure}[H]
+   \centering 
+   \includegraphics[scale=0.15]{Montajee Sensoress 2.jpg}
+   \caption{Montaje del circuito }
+   \label{grafica1}
+\end{figure}
+\vspace{0.2cm}
+
+
+\section{Resultados} 
+
+
+
+Dado que $R_0 = 100\Omega$, se establece la condición de equilibrio para que $V_s = 0$ en $t=0$:
+
+\begin{equation}
+    \frac{R_0}{R_0 + R_2} = \frac{R_3}{R_1 + R_3}
+\end{equation}
+
+Sustituyendo los valores conocidos:
+
+\begin{equation}
+    \frac{100\Omega}{100\Omega + 100\Omega} = \frac{x}{100 + x}
+\end{equation}
+
+Además, se tienen las siguientes relaciones de voltaje con respecto a la temperatura:
+
+\begin{align}
+    3V &\rightarrow 30^\circ \\
+    5V &\rightarrow 50^\circ
+\end{align}
+
+
+
+Ecuaciones del puente de Wheatstone:
+
+\begin{equation}
+\frac{R_0}{R_0 + R_2} = \frac{R_3}{R_1 + R_3}
+\end{equation}
+
+\begin{equation}
+\frac{100\ \Omega}{100\ \Omega + 100\ \Omega} = \frac{x}{100 + x}
+\end{equation}
+
+Valores de voltaje según la temperatura:
+
+\begin{equation}
+3V \rightarrow 30^\circ C
+\end{equation}
+
+\begin{equation}
+5V \rightarrow 50^\circ C
+\end{equation}
+
+Ecuaciones de la resistencia \( R_g \) y la ganancia \( G \):
+
+\begin{equation}
+R_g = \frac{49.4\ k\Omega}{G - 1}
+\end{equation}
+
+\begin{equation}
+G = \frac{49.4\ k\Omega}{R_g} + 1
+\end{equation}
+
+Cálculo de la resistencia \( R_g \) con una ganancia deseada:
+
+\begin{equation}
+G = 1 + \frac{50\ k\Omega}{R_g} \quad \Rightarrow \quad R_g = 470\ \Omega
+\end{equation}
+
+Cálculo de la ganancia experimental:
+
+\begin{equation}
+G = \frac{V_{out}}{V_{in}} = \frac{2.28V}{0.282V} = 8.09
+\end{equation}
+
+\begin{equation}
+R_g = \frac{49.4 \times 10^3}{8.09 - 1} = 6967.56\ \Omega
+\end{equation}
+
+Para la celda:
+
+\begin{equation}
+G = \frac{V_{out}}{V_{in}} = \frac{52.38\ mV}{2.23\ mV} = 23.42
+\end{equation}
+
+\begin{equation}
+R_g = \frac{49.4 \times 10^3}{23.42 - 1} = 2203\ \Omega
+\end{equation}
+
+\section{Análisis} 
+
+A través de la experimentación, pudimos evidenciar que, aunque la simulación se realizó bajo condiciones ideales, la realidad presentó un comportamiento distinto al esperado. Esto se debe a que las matemáticas modelan fenómenos bajo un enfoque determinista, mientras que el calor es un fenómeno complejo y no totalmente predecible. Para describir adecuadamente su distribución, sería necesario el uso de ecuaciones diferenciales.
+
+\vspace{0.1cm}
+
+Durante la prueba de protección térmica, observamos que al aplicar calor con un cautín, la distribución no era uniforme ni lineal. Como resultado, los voltajes de comparación variaban significativamente, impidiendo obtener un valor específico y constante para establecer la referencia. Para mitigar este efecto, implementamos un sistema de calentamiento más uniforme, utilizando un bombillo dentro de una caja. Si bien esta solución no eliminó por completo las variaciones térmicas, sí permitió reducir en gran medida los errores asociados a la distribución del calor.
+
+\vspace{0.1cm}
+
+Histéresis y Errores en la Medición con el Sensor Pt100
+Durante la caracterización del sensor Pt100, se obtuvo la curva de histéresis comparando la respuesta experimental con la teórica. Se observaron discrepancias significativas entre ambas debido a errores instrumentales, los cuales afectaron la precisión del sensor. Estos errores pueden atribuirse a múltiples factores, como:
+
+\vspace{0.1cm}
+
+Tolerancias en los componentes electrónicos utilizados en el circuito.
+Ruido en las mediciones, producto de interferencias externas o limitaciones del equipo de adquisición de datos.
+Variaciones en las condiciones ambientales o de prueba.
+Las ecuaciones de regresión obtenidas para el sensor Pt100 fueron:
+\vspace{0.2cm}
+Crecimiento: 
+
+R=1.8274T+68.5625
+\vspace{0.1cm}
+Decrecimiento: 
+
+R=1.2906T+116.0400
+\vspace{0.2cm}
+Los errores porcentuales promedios calculados fueron elevados:
+
+Crecimiento: 39.23%
+
+Decrecimiento: 54.8%
+
+\vspace{0.2cm}
+
+Estos valores reflejan una histéresis considerable, lo que indica que el sensor Pt100 presentó un comportamiento con una gran variabilidad y falta de precisión en la medición. Este alto margen de error pudo haber sido causado por un mal funcionamiento del sensor, afectando la estabilidad de las mediciones.
+
+\vspace{0.2cm}
+
+Encendido de LEDs y Precisión en la Medición
+Otro aspecto relevante fue la activación de los LEDs, los cuales indicaban diferentes niveles de temperatura. Se observó que la temperatura en la que los LEDs se encendían o apagaban no era exacta, sino que presentaba una aproximación a los valores esperados. Esta variabilidad en los umbrales de activación sugiere que el sistema presentaba cierto margen de error en la detección de temperatura, posiblemente debido a la histéresis del sensor y a la sensibilidad del circuito de comparación.
+
+\vspace{0.2cm}
+
+Desempeño de la Galga Extensométrica
+En el caso de la celda de carga, también se detectó un error considerable en la medición. La galga extensométrica no mostró una precisión absoluta en la conversión de la deformación en señal eléctrica, presentando variaciones en la lectura que afectaron la fiabilidad del sistema. Este error pudo deberse a la falta de calibración precisa o a limitaciones en la linealidad del sensor.
+
+
+
+
+
+
+\section{Conclusiones}
+\vspace{0.2cm}
+
+En la simulación, los valores de comparación se establecieron en función de las condiciones ideales. Sin embargo, al realizar las pruebas experimentales, fue necesario ajustar estos valores a partir de mediciones reales. Esto demuestra la importancia de comprender la teoría detrás del comportamiento de los sensores, pero también de considerar las discrepancias entre la simulación y la realidad.
+
+\vspace{0.2cm}
+
+Por esta razón, en lugar de asumir que 2V corresponden exactamente a 20°C, aplicamos un enfoque de ingeniería inversa. A partir de múltiples mediciones, determinamos los voltajes de comparación adecuados para cada rango de temperatura requerido. De esta manera, logramos compensar los errores y obtener un sistema más preciso y ajustado a las condiciones reales de operación.
+
+\vspace{0.2cm}
+
+La implementación de alarmas basadas en umbrales de voltaje demuestra la capacidad del sistema para reaccionar ante condiciones anómalas, como temperaturas fuera del rango deseado. Este aspecto resalta la importancia de combinar electrónica analógica y digital para desarrollar sistemas de medición no solo precisos, sino también seguros y confiables.
+\vspace{0.2cm}
+
+Se observa que la PT100 requiere un período de estabilización para proporcionar una medición precisa de la resistencia en función de la temperatura. Este tiempo de espera es esencial para que el sensor alcance un equilibrio térmico, asegurando así una lectura estable y confiable. Como resultado, se establece un intervalo de tiempo antes de activar las alarmas, garantizando que las señales generadas reflejen correctamente las condiciones térmicas actuales. Esta espera es crucial para minimizar el riesgo de falsas alarmas y optimizar la precisión del sistema de monitoreo y control.
+
+\section{Referencias}
+
+\begin{thebibliography}{99}
+
+\bibitem{boylestad_nashelsky} “¿Qué es el divisor de voltaje? (con ejemplos)”, Lifeder. Accedido el 30 de agosto de 2024. [En línea]. https://www.lifeder.com/divisor-de-voltaje/
+
+\bibitem{boylestad_nashelsky} “¿Qué es un Amplificador Operacional y cómo funciona?”, MiElectrónicaFácil.com. Accedido el 30 de agosto de 2024. [En línea]. https://mielectronicafacil.com/analogica/opamp/
+
+\bibitem{boylestad_nashelsky}“¿Qué es el acondicionamiento de señal?”, Soluciones de Adquisición de Datos (DAQ). Accedido el 30 de agosto de 2024. [En línea]. https://dewesoft.com/es/blog/que-es-acondicionamiento-de-seal
+
+\bibitem{boylestad_nashelsky}“¿Qué es el sensor resistivo?”, China Temperature Sensor y Thermistor Manufacturer. Accedido el 30 de agosto de 2024. [En línea]. https://www.ntcsensors.com/Queselsensorresistivo/
+
+\bibitem{boylestad_nashelsky} “¿Qué es la calibración de sensores? Definición y su aplicación”, Electrositio. Accedido el 30 de agosto de 2024. [En línea]. https://electrositio.com/que-es-la-calibracion-de-sensores-definicion-y-su-aplicacion/
+
+\bibitem{boylestad_nashelsky} Apache Tomcat/8.5.68. Accedido el 30 de agosto de 2024. [En línea]. http://www.ptolomeo.unam.mx:8080/xmlui/bitstream/
+
+\bibitem{boylestad_nashelsky} Cátedras Facultad de Ciencias Exactas y Tecnología – Universidad Nacional de Tucumán. Accedido el 30 de agosto de 2024. [En línea]. https://catedras.facet.unt.edu.ar/e3/wp-content/uploads/sites/122/2019/08/T2-GananciaAt-dB-Ruido.pdf
+
+\bibitem{boylestad_nashelsky} “Puente de Wheatstone”, VISTRÓNICA SAS. Accedido el 30 de agosto de 2024. [En línea]. https://www.vistronica.com/blog/post/puente-de-wheatstone-.html
+\bibitem{boylestad_nashelsky} R. Boylestad and L. Nashelsky, Electronic Devices and Circuit Theory, 11th ed. Boston, MA: Pearson, 2015.
+
+
+\end{thebibliography}
+
+\end{document}
+%--------------------------------------------------------------------------------------------------
+
+
+
+%--------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------
+
+
+
+%--------------------------------------------------------------------------------------------------
+
+
+
