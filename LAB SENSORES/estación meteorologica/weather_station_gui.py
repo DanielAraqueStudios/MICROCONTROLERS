@@ -12,6 +12,9 @@ import os
 from matrix_rain import MatrixRain
 
 class WeatherStation(QMainWindow):
+    # Constante privada para el nombre
+    __LEONARDO_NAME = "• Leonardo Montealegre - Aveces duerme"
+    
     def __init__(self):
         super().__init__()
         self.dark_mode = True  # Iniciar en modo oscuro
@@ -91,7 +94,7 @@ class WeatherStation(QMainWindow):
         
         team_members = [
             "• Daniel García Araque - Ingeniero de Software",
-            "• Leonardo Montealegre - Aveces duerme",
+            self.__LEONARDO_NAME,  # Usando la constante protegida
             "• Andrés Fonseca Neme - Ingeniero electrónico"
         ]
         
@@ -287,6 +290,16 @@ class WeatherStation(QMainWindow):
         self.matrix.setGeometry(0, 0, self.width(), self.height())
         self.matrix.lower()  # Poner animación detrás de todo
 
+        # Añadir buffer circular para temperatura
+        self.temp_buffer = [0, 0, 0]  # Buffer de 3 elementos
+        self.temp_buffer_index = 0
+
+        # Añadir buffer y variables para el viento
+        self.wind_buffer = [0] * 10  # Buffer más grande para el viento
+        self.wind_index = 0
+        self.prev_wind_speed = 0
+        self.wind_change_rate = 0.1  # Factor de suavizado
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         # Actualizar tamaño de la animación Matrix
@@ -362,7 +375,9 @@ class WeatherStation(QMainWindow):
             plot.setLabel('left', "Temperature (°C)", color='#00ff00')
         elif title == "ADC2 Voltage":
             plot.addLegend()
-            plot.setYRange(0, 3.3)  # Rango de voltaje 0-3.3V
+            plot.setYRange(0, 200)  # Rango para velocidad del viento en km/h
+            plot.setTitle("Wind Speed (km/h)", color='#00ff00')
+            plot.setLabel('left', "Wind Speed (km/h)", color='#00ff00')
         return plot
         
     def create_gauge(self, title):
@@ -390,7 +405,7 @@ class WeatherStation(QMainWindow):
     def connect_bluetooth(self):
         if self.serial_port is None:
             try:
-                self.serial_port = serial.Serial('/dev/ttyACM0', 9600)
+                self.serial_port = serial.Serial('/dev/ttyACM0 ', 9600)
                 self.bluetooth_button.setText("Desconectar Bluetooth")
                 self.connect_button.setEnabled(False)
                 self.usb0_button.setEnabled(False)
@@ -464,11 +479,21 @@ class WeatherStation(QMainWindow):
                         voltage = float(adc1_part.replace("V", ""))
                         # Convertir voltaje a temperatura usando la ecuación T = 55.60*V + 0.367
                         temperature = 55.60 * voltage + 0.367
+                        
+                        # Actualizar buffer circular
+                        self.temp_buffer[self.temp_buffer_index] = temperature
+                        self.temp_buffer_index = (self.temp_buffer_index + 1) % 3
+                        
+                        # Calcular promedio
+                        avg_temperature = sum(self.temp_buffer) / 3
+                        avg_temperature=avg_temperature+13
+                        
+                        # Actualizar gráfica y label con el valor promediado
                         self.adc1_data = np.roll(self.adc1_data, -1)
-                        self.adc1_data[-1] = temperature
+                        self.adc1_data[-1] = avg_temperature
                         self.adc1_curve.setData(self.timestamps, self.adc1_data)
-                        self.adc1_value_label.setText(f"Temperature: {temperature:.1f}°C")
-                        print(f"Debug - ADC1 voltage: {voltage:.2f}V")  # Mantenemos el debug en voltaje
+                        self.adc1_value_label.setText(f"Temperature: {avg_temperature:.1f}°C")
+                        print(f"Debug - ADC1 voltage: {voltage:.2f}V, Avg Temp: {avg_temperature:.1f}°C")
                     except Exception as e:
                         print(f"Error processing ADC1: {e}")
 
@@ -476,10 +501,31 @@ class WeatherStation(QMainWindow):
                 if line.startswith("ADC2:"):
                     try:
                         voltage = extract_number(line.split(":")[1])
+                        # Convertir voltaje a velocidad del viento
+                        target_wind_speed = 58.943 * voltage + 2.037
+                        
+                        # Actualizar buffer circular
+                        self.wind_buffer[self.wind_index] = target_wind_speed
+                        self.wind_index = (self.wind_index + 1) % 10
+                        
+                        # Calcular promedio móvil
+                        avg_wind = sum(self.wind_buffer) / 10
+                        
+                        # Suavizar transición
+                        if abs(avg_wind - self.prev_wind_speed) > 20:  # Si el cambio es muy brusco
+                            # Hacer transición suave
+                            wind_speed = self.prev_wind_speed + (avg_wind - self.prev_wind_speed) * self.wind_change_rate
+                        else:
+                            wind_speed = avg_wind
+                        
+                        self.prev_wind_speed = wind_speed
+                        
+                        # Actualizar gráfica y label
                         self.adc2_data = np.roll(self.adc2_data, -1)
-                        self.adc2_data[-1] = voltage
+                        self.adc2_data[-1] = wind_speed
                         self.adc2_curve.setData(self.timestamps, self.adc2_data)
-                        self.adc2_value_label.setText(f"ADC2: {voltage:.2f}V")
+                        self.adc2_value_label.setText(f"Wind: {wind_speed:.1f} km/h")
+                        print(f"Debug - ADC2 voltage: {voltage:.2f}V, Wind: {wind_speed:.1f} km/h")
                     except Exception as e:
                         print(f"Error processing ADC2: {e}")
                     
