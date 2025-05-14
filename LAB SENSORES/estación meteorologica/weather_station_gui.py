@@ -272,6 +272,11 @@ class WeatherStation(QMainWindow):
         self.adc1_data = np.zeros(100)
         self.adc2_data = np.zeros(100)
         
+        # Configuración inicial de las gráficas
+        self.adc1_curve = self.adc_plot1.plot(pen='b')
+        # Cambiar ADC2 de barras a línea continua
+        self.adc2_curve = self.adc_plot2.plot(pen={'color': '#ff0000', 'width': 2})
+
         # Serial port and timer setup
         self.serial_port = None
         self.update_timer = QTimer()
@@ -349,12 +354,24 @@ class WeatherStation(QMainWindow):
         plot.setLabel('left', y_label, color='#00ff00')
         plot.setLabel('bottom', x_label, color='#00ff00')
         plot.showGrid(x=True, y=True, alpha=0.3)
+        # Configurar rangos específicos para cada gráfica
+        if title == "ADC1 Voltage":
+            plot.addLegend()
+            plot.setYRange(0, 100)  # Rango para temperatura en Celsius
+            plot.setTitle("Temperature (°C)", color='#00ff00')
+            plot.setLabel('left', "Temperature (°C)", color='#00ff00')
+        elif title == "ADC2 Voltage":
+            plot.addLegend()
+            plot.setYRange(0, 3.3)  # Rango de voltaje 0-3.3V
         return plot
         
     def create_gauge(self, title):
         gauge = pg.PlotWidget()
         gauge.setBackground('#0a0a0a')
         gauge.setTitle(title, color='#00ff00')
+        # Modificamos el título del gauge de ADC3
+        if title == "ADC3 Percentage":
+            gauge.setTitle("Light Intensity (%)", color='#00ff00')
         gauge.setRange(yRange=(0, 100))
         gauge.hideAxis('bottom')
         # Hacer la barra más estrecha (width=0.3 en lugar de 0.6)
@@ -430,34 +447,66 @@ class WeatherStation(QMainWindow):
         if self.serial_port and self.serial_port.in_waiting:
             try:
                 line = self.serial_port.readline().decode().strip()
-                if line.startswith("ADC1:"):
-                    voltage = float(line.split(":")[1].replace("V", ""))
-                    self.adc1_data = np.roll(self.adc1_data, -1)
-                    self.adc1_data[-1] = voltage
-                    self.adc_plot1.plot(self.timestamps, self.adc1_data, clear=True, pen='b')
-                    self.adc1_value_label.setText(f"ADC1: {voltage:.2f}V")
-                    
-                elif line.startswith("ADC2:"):
-                    voltage = float(line.split(":")[1].replace("V", ""))
-                    self.adc2_data = np.roll(self.adc2_data, -1)
-                    self.adc2_data[-1] = voltage
-                    self.adc_plot2.plot(self.timestamps, self.adc2_data, clear=True, pen='r')
-                    self.adc2_value_label.setText(f"ADC2: {voltage:.2f}V")
+                print(f"Received: {line}")  # Debug
+
+                def extract_number(text):
+                    try:
+                        value = text.split()[0].replace("V", "").replace("Hz", "")
+                        return float(value)
+                    except Exception as e:
+                        print(f"Error extracting number from: {text}")
+                        return 0.0
+
+                # Procesamiento especial para ADC1 cuando viene en la misma línea que ADC2
+                if "ADC1:" in line:
+                    try:
+                        adc1_part = line[line.find("ADC1:"):].split()[1]
+                        voltage = float(adc1_part.replace("V", ""))
+                        # Convertir voltaje a temperatura usando la ecuación T = 55.60*V + 0.367
+                        temperature = 55.60 * voltage + 0.367
+                        self.adc1_data = np.roll(self.adc1_data, -1)
+                        self.adc1_data[-1] = temperature
+                        self.adc1_curve.setData(self.timestamps, self.adc1_data)
+                        self.adc1_value_label.setText(f"Temperature: {temperature:.1f}°C")
+                        print(f"Debug - ADC1 voltage: {voltage:.2f}V")  # Mantenemos el debug en voltaje
+                    except Exception as e:
+                        print(f"Error processing ADC1: {e}")
+
+                # Procesamiento normal para ADC2, ADC3 y Freq
+                if line.startswith("ADC2:"):
+                    try:
+                        voltage = extract_number(line.split(":")[1])
+                        self.adc2_data = np.roll(self.adc2_data, -1)
+                        self.adc2_data[-1] = voltage
+                        self.adc2_curve.setData(self.timestamps, self.adc2_data)
+                        self.adc2_value_label.setText(f"ADC2: {voltage:.2f}V")
+                    except Exception as e:
+                        print(f"Error processing ADC2: {e}")
                     
                 elif line.startswith("ADC3:"):
-                    voltage = float(line.split(":")[1].replace("V", ""))
-                    percentage = (voltage / 3.3) * 100
-                    self.gauge_bar.setOpts(height=[percentage])
-                    self.adc3_value_label.setText(f"ADC3: {voltage:.2f}V")
+                    try:
+                        voltage = extract_number(line.split(":")[1])
+                        # Convertir voltaje a porcentaje de luz usando la ecuación: porcentaje_luz = -45.45*V + 100
+                        light_percentage = -45.45 * voltage + 100
+                        # Asegurar que el porcentaje esté entre 0 y 100
+                        light_percentage = max(0, min(100, light_percentage))
+                        self.gauge_bar.setOpts(height=[light_percentage])
+                        self.adc3_value_label.setText(f"Light: {light_percentage:.1f}%")
+                    except Exception as e:
+                        print(f"Error processing ADC3: {e}")
                     
                 elif line.startswith("Freq:"):
-                    freq = float(line.split(":")[1].replace("Hz", ""))
-                    freq_percentage = min((freq / 65000.0) * 100, 100)
-                    self.freq_bar.setOpts(height=[freq_percentage])
-                    self.freq_value_label.setText(f"Frequency: {freq:.1f} Hz")
+                    try:
+                        freq = extract_number(line.split(":")[1])
+                        freq_percentage = min((freq / 65000.0) * 100, 100)
+                        self.freq_bar.setOpts(height=[freq_percentage])
+                        self.freq_value_label.setText(f"Frequency: {freq:.1f} Hz")
+                    except Exception as e:
+                        print(f"Error processing Freq: {e}")
                     
             except Exception as e:
                 print(f"Error parsing data: {e}")
+                print(f"Problematic line: {line}")  # Debug
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

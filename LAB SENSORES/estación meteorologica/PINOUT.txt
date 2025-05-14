@@ -1,0 +1,24 @@
+ADC Inputs:
+- PA0 -> ADC1 (Channel 0) - Entrada Analógica 1
+- PC0 -> ADC2 (Channel 10) - Entrada Analógica 2
+- PF3 -> ADC3 (Channel 9) - Entrada Analógica 3
+
+UART Communication (USART3):
+- PD8 -> USART3_TX - Transmisión de datos
+- PD9 -> USART3_RX - Recepción de datos
+
+Timer Input:
+- PB5 -> TIM3_CH2 - Entrada de Frecuencia (Configurado como AF2)
+
+GPIO Outputs:
+- PB0 -> LED de Estado (Heartbeat)
+- PB7 -> LED de Timer3
+
+Interrupts:
+- PC13 -> EXTI13 (External Interrupt)
+
+Clock Configurations:
+- Timer2: Base de tiempo 1s (16MHz/16000 = 1kHz, 1kHz/1000 = 1Hz)
+- Timer3: Contador de frecuencia (Sin preescaler, máximo conteo)
+- UART3: 9600 baudios (BRR = 0x683)
+- ADCs: 12-bit resolution (0-4096)
