@@ -92,7 +92,7 @@ class WeatherStation(QMainWindow):
         team_members = [
             "• Daniel García Araque - Ingeniero de Software",
             "• Leonardo Montealegre - Aveces duerme",
-            "• Andrés Fonseca NEme - Ingeniero electrónico"
+            "• Andrés Fonseca Neme - Ingeniero electrónico"
         ]
         
         for member in team_members:
@@ -369,10 +369,11 @@ class WeatherStation(QMainWindow):
         ports = [port.device for port in serial.tools.list_ports.comports()]
         self.port_combo.addItems(ports)
         
+    #change the bluethoot COM  port    
     def connect_bluetooth(self):
         if self.serial_port is None:
             try:
-                self.serial_port = serial.Serial('/dev/rfcomm0', 9600)
+                self.serial_port = serial.Serial('/dev/ttyACM0', 9600)
                 self.bluetooth_button.setText("Desconectar Bluetooth")
                 self.connect_button.setEnabled(False)
                 self.usb0_button.setEnabled(False)
