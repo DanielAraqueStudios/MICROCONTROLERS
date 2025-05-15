@@ -12,6 +12,9 @@ import os
 from matrix_rain import MatrixRain
 
 class WeatherStation(QMainWindow):
+    # Constante privada para el nombre
+    __LEONARDO_NAME = "• Leonardo Montealegre - Aveces duerme"
+    
     def __init__(self):
         super().__init__()
         self.dark_mode = True  # Iniciar en modo oscuro
@@ -91,13 +94,21 @@ class WeatherStation(QMainWindow):
         
         team_members = [
             "• Daniel García Araque - Ingeniero de Software",
-            "• Leonardo Montealegre - Aveces duerme",
-            "• Andrés Fonseca NEme - Ingeniero electrónico"
+            self.__LEONARDO_NAME,  # Usando la constante protegida
+            "• Andrés Fonseca Neme - Ingeniero electrónico"
         ]
         
         for member in team_members:
             member_label = QLabel(member)
-            member_label.setFont(QFont('Ubuntu Light', 12))
+            member_label.setFont(QFont('Ubuntu', 16, QFont.Weight.Bold))
+            member_label.setStyleSheet("""
+                color: #00ff00;
+                font-weight: bold;
+                padding: 5px;
+                background-color: rgba(26, 26, 26, 0.7);
+                border-radius: 5px;
+                margin: 2px;
+            """)
             team_layout.addWidget(member_label)
             
         team_layout.addStretch()
@@ -161,31 +172,101 @@ class WeatherStation(QMainWindow):
         self.clock_timer.start(1000)  # Update every second
         self.update_clock()  # Initial update
         
+        # Create all plots and gauges first
+        self.adc_plot1 = self.create_plot("ADC1 Voltage", "Time", "Voltage (V)")
+        self.adc_plot2 = self.create_plot("ADC2 Voltage", "Time", "Voltage (V)")
+        self.gauge_widget, self.gauge_bar = self.create_gauge("ADC3 Percentage")
+        self.freq_gauge, self.freq_bar = self.create_gauge("Frequency %")
+
         # Graphs widget
         graphs_widget = QWidget()
         graphs_layout = QHBoxLayout(graphs_widget)
         
-        # ADC plots
-        self.adc_plot1 = self.create_plot("ADC1 Voltage", "Time", "Voltage (V)")
-        self.adc_plot2 = self.create_plot("ADC2 Voltage", "Time", "Voltage (V)")
-        
+        # ADC plots section (70% del ancho)
         plots_layout = QVBoxLayout()
-        plots_layout.addWidget(self.adc_plot1)
-        plots_layout.addWidget(self.adc_plot2)
-        graphs_layout.addLayout(plots_layout)
         
-        # Gauges layout
+        # ADC1 plot y valor
+        adc1_container = QWidget()
+        adc1_layout = QVBoxLayout(adc1_container)
+        adc1_layout.addWidget(self.adc_plot1)
+        self.adc1_value_label = QLabel("ADC1: 0.00V")
+        self.adc1_value_label.setStyleSheet("""
+            color: #00ff00;
+            font-family: 'Ubuntu Mono';
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px;
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        """)
+        self.adc1_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        adc1_layout.addWidget(self.adc1_value_label)
+        plots_layout.addWidget(adc1_container)
+        
+        # ADC2 plot y valor
+        adc2_container = QWidget()
+        adc2_layout = QVBoxLayout(adc2_container)
+        adc2_layout.addWidget(self.adc_plot2)
+        self.adc2_value_label = QLabel("ADC2: 0.00V")
+        self.adc2_value_label.setStyleSheet("""
+            color: #00ff00;
+            font-family: 'Ubuntu Mono';
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px;
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        """)
+        self.adc2_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        adc2_layout.addWidget(self.adc2_value_label)
+        plots_layout.addWidget(adc2_container)
+
+        graphs_layout.addLayout(plots_layout, stretch=70)
+        
+        # Gauges layout con valores
         gauges_layout = QVBoxLayout()
         
-        # ADC3 percentage gauge
-        self.gauge_widget, self.gauge_bar = self.create_gauge("ADC3 Percentage")
-        gauges_layout.addWidget(self.gauge_widget)
+        # ADC3 gauge y valor
+        adc3_container = QWidget()
+        adc3_layout = QVBoxLayout(adc3_container)
+        adc3_layout.addWidget(self.gauge_widget)
+        self.adc3_value_label = QLabel("ADC3: 0.00V")
+        self.adc3_value_label.setStyleSheet("""
+            color: #00ff00;
+            font-family: 'Ubuntu Mono';
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px;
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        """)
+        self.adc3_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        adc3_layout.addWidget(self.adc3_value_label)
+        gauges_layout.addWidget(adc3_container)
         
-        # Frequency gauge
-        self.freq_gauge, self.freq_bar = self.create_gauge("Frequency %")
-        gauges_layout.addWidget(self.freq_gauge)
-        
-        graphs_layout.addLayout(gauges_layout)
+        # Frequency gauge y valor
+        freq_container = QWidget()
+        freq_layout = QVBoxLayout(freq_container)
+        freq_layout.addWidget(self.freq_gauge)
+        self.freq_value_label = QLabel("Frequency: 0.0 Hz")
+        self.freq_value_label.setStyleSheet("""
+            color: #00ff00;
+            font-family: 'Ubuntu Mono';
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px;
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        """)
+        self.freq_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        freq_layout.addWidget(self.freq_value_label)
+        gauges_layout.addWidget(freq_container)
+
+        graphs_layout.addLayout(gauges_layout, stretch=30)
         
         layout.addWidget(graphs_widget)
         
@@ -194,6 +275,11 @@ class WeatherStation(QMainWindow):
         self.adc1_data = np.zeros(100)
         self.adc2_data = np.zeros(100)
         
+        # Configuración inicial de las gráficas
+        self.adc1_curve = self.adc_plot1.plot(pen='b')
+        # Cambiar ADC2 de barras a línea continua
+        self.adc2_curve = self.adc_plot2.plot(pen={'color': '#ff0000', 'width': 2})
+
         # Serial port and timer setup
         self.serial_port = None
         self.update_timer = QTimer()
@@ -203,6 +289,16 @@ class WeatherStation(QMainWindow):
         self.matrix = MatrixRain(self)
         self.matrix.setGeometry(0, 0, self.width(), self.height())
         self.matrix.lower()  # Poner animación detrás de todo
+
+        # Añadir buffer circular para temperatura
+        self.temp_buffer = [0, 0, 0]  # Buffer de 3 elementos
+        self.temp_buffer_index = 0
+
+        # Añadir buffer y variables para el viento
+        self.wind_buffer = [0] * 10  # Buffer más grande para el viento
+        self.wind_index = 0
+        self.prev_wind_speed = 0
+        self.wind_change_rate = 0.1  # Factor de suavizado
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -271,16 +367,33 @@ class WeatherStation(QMainWindow):
         plot.setLabel('left', y_label, color='#00ff00')
         plot.setLabel('bottom', x_label, color='#00ff00')
         plot.showGrid(x=True, y=True, alpha=0.3)
+        # Configurar rangos específicos para cada gráfica
+        if title == "ADC1 Voltage":
+            plot.addLegend()
+            plot.setYRange(0, 100)  # Rango para temperatura en Celsius
+            plot.setTitle("Temperature (°C)", color='#00ff00')
+            plot.setLabel('left', "Temperature (°C)", color='#00ff00')
+        elif title == "ADC2 Voltage":
+            plot.addLegend()
+            plot.setYRange(0, 200)  # Rango para velocidad del viento en km/h
+            plot.setTitle("Wind Speed (km/h)", color='#00ff00')
+            plot.setLabel('left', "Wind Speed (km/h)", color='#00ff00')
         return plot
         
     def create_gauge(self, title):
         gauge = pg.PlotWidget()
         gauge.setBackground('#0a0a0a')
         gauge.setTitle(title, color='#00ff00')
+        # Modificamos el título del gauge de ADC3
+        if title == "ADC3 Percentage":
+            gauge.setTitle("Light Intensity (%)", color='#00ff00')
         gauge.setRange(yRange=(0, 100))
         gauge.hideAxis('bottom')
-        bar = pg.BarGraphItem(x=[0], height=[0], width=0.6, brush='#00ff00')
+        # Hacer la barra más estrecha (width=0.3 en lugar de 0.6)
+        bar = pg.BarGraphItem(x=[0], height=[0], width=0.3, brush='#00ff00')
         gauge.addItem(bar)
+        # Ajustar el rango del eje X para centrar la barra
+        gauge.setRange(xRange=(-0.5, 0.5))
         return gauge, bar
 
     def update_ports(self):
@@ -288,10 +401,11 @@ class WeatherStation(QMainWindow):
         ports = [port.device for port in serial.tools.list_ports.comports()]
         self.port_combo.addItems(ports)
         
+    #change the bluethoot COM  port    
     def connect_bluetooth(self):
         if self.serial_port is None:
             try:
-                self.serial_port = serial.Serial('/dev/rfcomm0', 9600)
+                self.serial_port = serial.Serial('/dev/ttyACM0 ', 9600)
                 self.bluetooth_button.setText("Desconectar Bluetooth")
                 self.connect_button.setEnabled(False)
                 self.usb0_button.setEnabled(False)
@@ -348,33 +462,97 @@ class WeatherStation(QMainWindow):
         if self.serial_port and self.serial_port.in_waiting:
             try:
                 line = self.serial_port.readline().decode().strip()
-                if line.startswith("ADC1:"):
-                    voltage = float(line.split(":")[1].replace("V", ""))
-                    self.adc1_data = np.roll(self.adc1_data, -1)
-                    self.adc1_data[-1] = voltage
-                    self.adc_plot1.plot(self.timestamps, self.adc1_data, clear=True, pen='b')
-                    
-                elif line.startswith("ADC2:"):
-                    voltage = float(line.split(":")[1].replace("V", ""))
-                    self.adc2_data = np.roll(self.adc2_data, -1)
-                    self.adc2_data[-1] = voltage
-                    self.adc_plot2.plot(self.timestamps, self.adc2_data, clear=True, pen='r')
+                print(f"Received: {line}")  # Debug
+
+                def extract_number(text):
+                    try:
+                        value = text.split()[0].replace("V", "").replace("Hz", "")
+                        return float(value)
+                    except Exception as e:
+                        print(f"Error extracting number from: {text}")
+                        return 0.0
+
+                # Procesamiento especial para ADC1 cuando viene en la misma línea que ADC2
+                if "ADC1:" in line:
+                    try:
+                        adc1_part = line[line.find("ADC1:"):].split()[1]
+                        voltage = float(adc1_part.replace("V", ""))
+                        # Convertir voltaje a temperatura usando la ecuación T = 55.60*V + 0.367
+                        temperature = 55.60 * voltage + 0.367
+                        
+                        # Actualizar buffer circular
+                        self.temp_buffer[self.temp_buffer_index] = temperature
+                        self.temp_buffer_index = (self.temp_buffer_index + 1) % 3
+                        
+                        # Calcular promedio
+                        avg_temperature = sum(self.temp_buffer) / 3
+                        avg_temperature=avg_temperature+13
+                        
+                        # Actualizar gráfica y label con el valor promediado
+                        self.adc1_data = np.roll(self.adc1_data, -1)
+                        self.adc1_data[-1] = avg_temperature
+                        self.adc1_curve.setData(self.timestamps, self.adc1_data)
+                        self.adc1_value_label.setText(f"Temperature: {avg_temperature:.1f}°C")
+                        print(f"Debug - ADC1 voltage: {voltage:.2f}V, Avg Temp: {avg_temperature:.1f}°C")
+                    except Exception as e:
+                        print(f"Error processing ADC1: {e}")
+
+                # Procesamiento normal para ADC2, ADC3 y Freq
+                if line.startswith("ADC2:"):
+                    try:
+                        voltage = extract_number(line.split(":")[1])
+                        # Convertir voltaje a velocidad del viento
+                        target_wind_speed = 58.943 * voltage + 2.037
+                        
+                        # Actualizar buffer circular
+                        self.wind_buffer[self.wind_index] = target_wind_speed
+                        self.wind_index = (self.wind_index + 1) % 10
+                        
+                        # Calcular promedio móvil
+                        avg_wind = sum(self.wind_buffer) / 10
+                        
+                        # Suavizar transición
+                        if abs(avg_wind - self.prev_wind_speed) > 20:  # Si el cambio es muy brusco
+                            # Hacer transición suave
+                            wind_speed = self.prev_wind_speed + (avg_wind - self.prev_wind_speed) * self.wind_change_rate
+                        else:
+                            wind_speed = avg_wind
+                        
+                        self.prev_wind_speed = wind_speed
+                        
+                        # Actualizar gráfica y label
+                        self.adc2_data = np.roll(self.adc2_data, -1)
+                        self.adc2_data[-1] = wind_speed
+                        self.adc2_curve.setData(self.timestamps, self.adc2_data)
+                        self.adc2_value_label.setText(f"Wind: {wind_speed:.1f} km/h")
+                        print(f"Debug - ADC2 voltage: {voltage:.2f}V, Wind: {wind_speed:.1f} km/h")
+                    except Exception as e:
+                        print(f"Error processing ADC2: {e}")
                     
                 elif line.startswith("ADC3:"):
-                    voltage = float(line.split(":")[1].replace("V", ""))
-                    percentage = (voltage / 3.3) * 100
-                    self.gauge_bar.setOpts(height=[percentage])
+                    try:
+                        voltage = extract_number(line.split(":")[1])
+                        # Convertir voltaje a porcentaje de luz usando la ecuación: porcentaje_luz = -45.45*V + 100
+                        light_percentage = -45.45 * voltage + 100
+                        # Asegurar que el porcentaje esté entre 0 y 100
+                        light_percentage = max(0, min(100, light_percentage))
+                        self.gauge_bar.setOpts(height=[light_percentage])
+                        self.adc3_value_label.setText(f"Light: {light_percentage:.1f}%")
+                    except Exception as e:
+                        print(f"Error processing ADC3: {e}")
                     
                 elif line.startswith("Freq:"):
-                    freq = float(line.split(":")[1].replace("Hz", ""))
-                    # Convertir frecuencia a porcentaje (máximo 65000Hz)
-                    freq_percentage = min((freq / 65000.0) * 100, 100)
-                    self.freq_bar.setOpts(height=[freq_percentage])
-                    # Actualizar el título con el valor actual y máximo
-                    self.freq_gauge.setTitle(f"Frequency: {freq:.1f}  ")
+                    try:
+                        freq = extract_number(line.split(":")[1])
+                        freq_percentage = min((freq / 65000.0) * 100, 100)
+                        self.freq_bar.setOpts(height=[freq_percentage])
+                        self.freq_value_label.setText(f"Frequency: {freq:.1f} Hz")
+                    except Exception as e:
+                        print(f"Error processing Freq: {e}")
                     
             except Exception as e:
                 print(f"Error parsing data: {e}")
+                print(f"Problematic line: {line}")  # Debug
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
