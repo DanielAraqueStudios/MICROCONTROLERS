@@ -1,6 +1,7 @@
 #include <stm32f767xx.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 volatile int ContDerecho;
 volatile int ContIzquierdo;
@@ -18,6 +19,25 @@ volatile int x = 0, y = 0; // Variables finales donde se guardarán los números
 uint8_t flag = 0, i, cont = 0;
 unsigned char d;
 char name[7] = "Cely", text[10];
+
+// Añadir definiciones MPU6050
+#define MPU6050_ADDR         0x68
+#define MPU6050_SMPLRT_DIV   0x19
+#define MPU6050_CONFIG       0x1A
+#define MPU6050_GYRO_CONFIG  0x1B
+#define MPU6050_ACCEL_CONFIG 0x1C
+#define MPU6050_WHO_AM_I     0x75
+#define MPU6050_PWR_MGMT_1   0x6B
+
+// Añadir variables para MPU6050 y LCD
+double raw_acc_x, raw_acc_y;
+double anguloInclinacion;
+char angleStr[16];
+
+// Variables para filtro
+#define N_SAMPLES 10
+double angulos[N_SAMPLES] = {0};
+int sample_index = 0;
 
 void SysTick_Wait(uint32_t n){
     SysTick->LOAD = n - 1; //15999
@@ -90,6 +110,16 @@ void Girar(int n){
             }
 					 }
 }
+void GPIO_LCD_Init(void);
+void LCD_Init(void);
+void Command(uint8_t cmd);
+void Escribir(char data);
+void LCD_SendString(const char X[]);
+void LCD_SetCursor(uint8_t row, uint8_t col);
+void UpdateDisplay(float angle);
+void INIT_I2C(void);
+void configMPU(void);
+
 int main(void) {
     // Configuración sensor de herradura
     RCC->AHB1ENR |= (1<<2)|(1 << 3); // Activa reloj para GPIOD y GPIOC
@@ -264,3 +294,97 @@ extern "C" void EXTI15_10_IRQHandler(void){
             flag = 1;
         }
 			}
+void GPIO_LCD_Init(void) {
+  // Habilitar reloj para GPIOB
+  RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+
+  // Configurar PB0 y PB1 como salida
+  GPIOB->MODER &= ~(GPIO_MODER_MODER0_Msk | GPIO_MODER_MODER1_Msk);
+  GPIOB->MODER |= (1 << GPIO_MODER_MODER0_Pos) | (1 << GPIO_MODER_MODER1_Pos);
+}
+
+void LCD_Init(void) {
+  // Esperar más de 15 ms después de encender el LCD
+  SysTick_ms(20);
+
+  // Configurar el LCD en modo de 8 bits y 2 líneas
+  Command(0x38);
+
+  // Activar el display y el cursor parpadeante
+  Command(0x0C);
+
+  // Borrar el display
+  Command(0x01);
+
+  // Configurar el cursor en la posición inicial
+  Command(0x80);
+}
+
+void Command(uint8_t cmd) {
+  // Enviar el comando al LCD
+  Escribir(cmd);
+}
+
+void Escribir(char data) {
+  // Enviar un byte de datos al LCD
+  GPIOB->ODR = (GPIOB->ODR & 0xFFFFFF00) | data;
+
+  // Generar un pulso de enable
+  GPIOB->ODR |= (1 << 1);
+  SysTick_ms(1);
+  GPIOB->ODR &= ~(1 << 1);
+  SysTick_ms(1);
+}
+
+void LCD_SendString(const char X[]) {
+  // Enviar una cadena de caracteres al LCD
+  while (*X) {
+    Escribir(*X++);
+  }
+}
+
+void LCD_SetCursor(uint8_t row, uint8_t col) {
+  // Establecer la posición del cursor en el LCD
+  uint8_t pos;
+
+  if (row == 0) {
+    pos = 0x80 + col;
+  } else {
+    pos = 0xC0 + col;
+  }
+
+  Command(pos);
+}
+
+void UpdateDisplay(float angle) {
+  // Actualizar la pantalla LCD con el ángulo actual
+  LCD_SetCursor(0, 0);
+  sprintf(angleStr, "Angulo: %.2f", angle);
+  LCD_SendString(angleStr);
+}
+
+void INIT_I2C(void) {
+    // Habilitar el reloj para el bus I2C1
+    RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
+
+    // Configurar los pines para I2C1 (PB8 y PB9)
+    GPIOB->MODER &= ~((3<<16) | (3<<18));  // Limpiar
+    GPIOB->MODER |= (2<<16) | (2<<18);     // Alternate function
+    GPIOB->AFR[1] &= ~(0xF<<0 | 0xF<<4);   // Limpiar AF
+    GPIOB->AFR[1] |= (4<<0) | (4<<4);      // AF4 para I2C1
+
+    // Configurar I2C1
+    I2C1->CR1 &= ~I2C_CR1_PE;              // Deshabilitar I2C
+    I2C1->TIMINGR = 0x10909CEC;            // Timing para 100kHz 
+    I2C1->CR1 |= I2C_CR1_PE;               // Habilitar I2C
+}
+
+int I2C1_Escribe(int direccion, int reg_dir, int *buffer, int nbytes) {
+    // ...mantener código existente de I2C1_Escribe...
+    return 0;
+}
+
+int I2C1_Lee(int direccion, int reg_dir, int *buffer, int nbytes) {
+    // ...mantener código existente de I2C1_Lee...
+    return 0;
+}
