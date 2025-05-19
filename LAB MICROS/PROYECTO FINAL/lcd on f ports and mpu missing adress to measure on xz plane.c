@@ -96,17 +96,17 @@ int main(void) {
         int16_t accum_x = 0, accum_y = 0;
 
         // Leer ejes X e Y del MPU6050
-        I2C1_Lee(MPU6050_ADDR, 0x3B, rx_data, 1);
+        I2C1_Lee(MPU6050_ADDR, 0x3D, rx_data, 1);
         accum_x = rx_data[0] << 8;
         SysTick_Wait1ms(100);
-        I2C1_Lee(MPU6050_ADDR, 0x3C, rx_data, 1);
+        I2C1_Lee(MPU6050_ADDR, 0x3E, rx_data, 1);
         accum_x |= rx_data[0];
         SysTick_Wait1ms(100);
 
-        I2C1_Lee(MPU6050_ADDR, 0x3D, rx_data, 1);
+        I2C1_Lee(MPU6050_ADDR, 0x3F, rx_data, 1);
         accum_y = rx_data[0] << 8;
         SysTick_Wait1ms(100);
-        I2C1_Lee(MPU6050_ADDR, 0x3E, rx_data, 1);
+        I2C1_Lee(MPU6050_ADDR, 0x40, rx_data, 1);
         accum_y |= rx_data[0];
         SysTick_Wait1ms(100);
 
