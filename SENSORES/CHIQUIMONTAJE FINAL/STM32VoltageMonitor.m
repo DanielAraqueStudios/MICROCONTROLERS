@@ -45,6 +45,20 @@ classdef STM32VoltageMonitor < handle
         % Modificar los límites de voltaje
         VOLTAGE_MIN = 0;
         VOLTAGE_MAX = 3.3;
+        
+        % BPM properties
+        bpmText;           % Text display for BPM
+        lastPeakTime = 0;  % Time of last peak
+        peakThreshold = 2; % Voltage threshold for peak detection
+        bpmValue = 0;      % Current BPM value
+        peakTimes = [];    % Array to store peak times
+        MAX_PEAK_WINDOW = 10; % Maximum number of peaks to consider
+        
+        % BPM detection properties
+        windowSize = 10;         % Tamaño de la ventana para detección
+        lastValues = [];         % Buffer circular para valores
+        isPeakDetected = false;  % Estado de detección de pico
+        minPeakDistance = 0.2;   % Tiempo mínimo entre picos (segundos)
     end
     
     methods
@@ -121,6 +135,24 @@ classdef STM32VoltageMonitor < handle
             catch
                 warning('No se pudo cargar la imagen de advertencia');
             end
+            
+            % Panel para BPM
+            bpmPanel = uipanel('Parent', obj.fig, ...
+                'Title', 'Ritmo Cardíaco', ...
+                'Position', [0.05 0.8 0.2 0.15], ...
+                'BackgroundColor', [0.2 0.2 0.2], ...
+                'ForegroundColor', [0.8 0.8 0.8], ...
+                'HighlightColor', [0.3 0.3 0.3]);
+            
+            % Display de BPM
+            obj.bpmText = uicontrol('Parent', bpmPanel, ...
+                'Style', 'text', ...
+                'String', '0 BPM', ...
+                'Position', [10 10 160 40], ...
+                'BackgroundColor', [0.15 0.15 0.15], ...
+                'ForegroundColor', [0 1 0], ...
+                'FontSize', 20, ...
+                'FontWeight', 'bold');
         end
         
         function sendCommand(obj, cmd)
@@ -141,6 +173,58 @@ classdef STM32VoltageMonitor < handle
             % Actualizar gráfica si hay nuevos datos
             if obj.lastVolt ~= 0
                 obj.sampleCount = obj.sampleCount + 1;
+                currentTime = now * 24 * 3600; % Tiempo actual en segundos
+                
+                % Actualizar buffer circular
+                obj.lastValues(end+1) = obj.lastVolt;
+                if length(obj.lastValues) > obj.windowSize
+                    obj.lastValues = obj.lastValues(end-obj.windowSize+1:end);
+                end
+                
+                % Detección de picos usando ventana deslizante
+                if length(obj.lastValues) >= 3
+                    middleIndex = ceil(length(obj.lastValues)/2);
+                    middleValue = obj.lastValues(middleIndex);
+                    
+                    % Verificar si es un pico local
+                    isPeak = middleValue > mean(obj.lastValues) && ...
+                            all(middleValue >= obj.lastValues(1:middleIndex-1)) && ...
+                            all(middleValue >= obj.lastValues(middleIndex+1:end));
+                    
+                    if isPeak && ~obj.isPeakDetected && ...
+                       (currentTime - obj.lastPeakTime) > obj.minPeakDistance
+                        % Pico detectado
+                        obj.peakTimes(end+1) = currentTime;
+                        obj.lastPeakTime = currentTime;
+                        obj.isPeakDetected = true;
+                        
+                        % Mantener solo los últimos 10 picos
+                        if length(obj.peakTimes) > 10
+                            obj.peakTimes = obj.peakTimes(end-9:end);
+                        end
+                        
+                        % Calcular BPM basado en intervalos entre picos
+                        if length(obj.peakTimes) >= 2
+                            intervals = diff(obj.peakTimes);
+                            avgInterval = mean(intervals);
+                            obj.bpmValue = round(60 / avgInterval);
+                            
+                            % Actualizar display de BPM
+                            set(obj.bpmText, 'String', sprintf('%d BPM', obj.bpmValue));
+                            
+                            % Actualizar color según rango de BPM
+                            if obj.bpmValue < 60
+                                set(obj.bpmText, 'ForegroundColor', [1 1 0]); % Amarillo
+                            elseif obj.bpmValue > 100
+                                set(obj.bpmText, 'ForegroundColor', [1 0 0]); % Rojo
+                            else
+                                set(obj.bpmText, 'ForegroundColor', [0 1 0]); % Verde
+                            end
+                        end
+                    elseif ~isPeak
+                        obj.isPeakDetected = false;
+                    end
+                end
                 
                 % Actualizar puntos de la gráfica con el voltaje real
                 obj.timePoints(end+1) = obj.sampleCount;
