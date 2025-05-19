@@ -59,6 +59,9 @@ classdef STM32VoltageMonitor < handle
         lastValues = [];         % Buffer circular para valores
         isPeakDetected = false;  % Estado de detección de pico
         minPeakDistance = 0.2;   % Tiempo mínimo entre picos (segundos)
+        
+        % Mindful animation property
+        mindfulAnimation;  % Add new property
     end
     
     methods
@@ -153,6 +156,10 @@ classdef STM32VoltageMonitor < handle
                 'ForegroundColor', [0 1 0], ...
                 'FontSize', 20, ...
                 'FontWeight', 'bold');
+            
+            % Create and setup mindful animation
+            obj.mindfulAnimation = MindfulAnimation(obj.fig);
+            obj.mindfulAnimation.lower();  % Put animation behind everything
         end
         
         function sendCommand(obj, cmd)
