@@ -1,100 +1,82 @@
-% Código completo para generar gráfica de regresión lineal
-% Caracterización de Velocidad del Viento vs Voltaje del Motor DC
-
-clear all;
-close all;
-clc;
-
-% Datos experimentales con variación <2% respecto a los originales
-velocidad = [20, 30, 40, 50, 60, 80]; % km/h (sin cambios)
-voltaje = [0.263, 0.452, 0.703, 0.999, 1.261, 1.408]; % V (variación <2%)
-
-% Convertir voltaje a mV para la visualización
-voltajeMv = voltaje * 1000; % mV
-
-% Realizar regresión lineal
-coeficientes = polyfit(velocidad, voltajeMv, 1);
-pendiente = coeficientes(1);
-intercepto = coeficientes(2);
-
-fprintf('Ecuación de la línea de tendencia: y = %.5fx + (%.5f)\n', pendiente, intercepto);
-
-% Calcular coeficiente de correlación
-coefCorrelacion = corrcoef(velocidad, voltajeMv);
-r = coefCorrelacion(1, 2);
-fprintf('Coeficiente de correlación: %.4f\n', r);
-fprintf('Coeficiente de determinación (R²): %.4f\n', r^2);
-
-% Generar datos para la línea de tendencia de 0 a 150
-x = 0:1:150;
-y = pendiente * x + intercepto;
-
-% Generar puntos específicos para intervalos de 10 km/h
-xIntervalos = 0:10:150;
-yIntervalos = pendiente * xIntervalos + intercepto;
-
-% Crear una figura con tamaño definido
-figure('Name', 'Figure 1', 'Position', [100, 100, 800, 600], 'Color', 'white');
-
-% Crear el gráfico de dispersión con los datos experimentales
-scatter(velocidad, voltajeMv, 80, 'k', 'filled');
-hold on;
-
-% Dibujar la línea de tendencia
-plot(x, y, 'r--', 'LineWidth', 2);
-
-% Añadir puntos en los intervalos de 10 km/h
-scatter(xIntervalos, yIntervalos, 60, 'b', 'filled');
-
-% Configurar ejes
-grid on;
-xlim([0 150]);
-ylim([-500 3500]);
-xticks(0:20:150);
-yticks(-500:500:3500);
-
-% Añadir etiquetas y título
-title('Regresión Lineal', 'FontSize', 16, 'FontWeight', 'bold');
-xlabel('Velocidad (m/s)', 'FontSize', 12);
-ylabel('Voltaje (mV)', 'FontSize', 12);
-
-% Simplificar la ecuación para mostrarla en la gráfica (redondeando a 2 decimales)
-pendienteSimple = round(pendiente * 100) / 100;
-interceptoSimple = round(intercepto * 100) / 100;
-
-% Añadir la ecuación a la gráfica
-texto = sprintf('y = %.2fx + (%.2f)', pendienteSimple, interceptoSimple);
-text(50, 600, texto, 'Color', 'blue', 'FontSize', 12, 'FontWeight', 'bold');
-
-% Añadir leyenda
-legend('Datos experimentales', 'Ajuste Lineal', 'Intervalos de 10 km/h', 'Location', 'northwest');
-
-% Configurar propiedades de la cuadrícula y el gráfico
-set(gca, 'GridLineStyle', ':');
-set(gca, 'GridAlpha', 0.5);
-set(gca, 'FontSize', 10);
-set(gca, 'Box', 'on');
-
-% Crear tabla con los datos
-fprintf('\nDatos originales:\n');
-fprintf('Velocidad (km/h) | Voltaje (V) | Voltaje (mV)\n');
-fprintf('---------------------------------------------\n');
-for i = 1:length(velocidad)
-    fprintf('%14.1f | %9.3f | %11.1f\n', velocidad(i), voltaje(i), voltajeMv(i));
+classdef STM32VoltageMonitor < handle
+    properties
+        serialPort % Puerto serial para la comunicación
+        baudRate % Tasa de baudios para la comunicación
+        serialObj % Objeto de puerto serial
+        updateTimer % Temporizador para actualizaciones
+        fig % Figura de la interfaz
+    end
+    
+    methods
+        function obj = STM32VoltageMonitor(port, rate)
+            obj.serialPort = port;
+            obj.baudRate = rate;
+            obj.fig = figure('Name', 'STM32 Voltage Monitor', 'CloseRequestFcn', @(src, event)closeFigure(obj));
+            obj.initializeSerial();
+            obj.startTimer();
+        end
+        
+        function initializeSerial(obj)
+            try
+                obj.serialObj = serialport(obj.serialPort, obj.baudRate);
+                configureTerminator(obj.serialObj, "CR/LF");
+                disp('Puerto serial inicializado correctamente');
+            catch e
+                error('Error al inicializar el puerto serial: %s', e.message);
+            end
+        end
+        
+        function startTimer(obj)
+            obj.updateTimer = timer('ExecutionMode', 'fixedRate', 'Period', 1, ...
+                'TimerFcn', @(~,~)obj.readVoltage());
+            start(obj.updateTimer);
+        end
+        
+        function readVoltage(obj)
+            try
+                % Leer datos del puerto serial
+                data = readline(obj.serialObj);
+                voltage = str2double(data);
+                
+                % Actualizar la interfaz gráfica
+                if isvalid(obj.fig)
+                    clf(obj.fig);
+                    plot(obj.fig, voltage);
+                    title(obj.fig, 'Voltaje en tiempo real');
+                    xlabel(obj.fig, 'Tiempo (s)');
+                    ylabel(obj.fig, 'Voltaje (V)');
+                end
+            catch e
+                warning('Error al leer el voltaje: %s', e.message);
+            end
+        end
+        
+        function closeFigure(obj)
+            try
+                % Detener timer
+                if ~isempty(obj.updateTimer) && isvalid(obj.updateTimer)
+                    stop(obj.updateTimer);
+                    delete(obj.updateTimer);
+                end
+                
+                % Cerrar puerto serial
+                if ~isempty(obj.serialObj) && isvalid(obj.serialObj)
+                    delete(obj.serialObj);
+                end
+                
+                % Eliminar la figura
+                if isvalid(obj.fig)
+                    delete(obj.fig);
+                end
+                
+                disp('Monitor finalizado correctamente');
+            catch e
+                warning('Error durante el cierre: %s', e.message);
+                % Forzar cierre de la figura en caso de error
+                if isvalid(obj.fig)
+                    delete(obj.fig);
+                end
+            end
+        end
+    end
 end
-
-% Calcular voltajes para velocidades de 0 a 150 km/h en intervalos de 10
-fprintf('\nVoltaje calculado para velocidades de 0 a 150 km/h:\n');
-fprintf('Velocidad (km/h) | Voltaje (mV)\n');
-fprintf('-------------------------------\n');
-for v = 0:10:150
-    voltajeCalculado = pendiente * v + intercepto;
-    fprintf('%14.1f | %11.1f\n', v, voltajeCalculado);
-end
-
-% También guardar estos valores en arrays para uso posterior si es necesario
-velocidadesIntervalos = 0:10:150;
-voltajesIntervalos = pendiente * velocidadesIntervalos + intercepto;
-
-% Mostrar un mensaje de finalización
-fprintf('\nGráfica y cálculos completados con éxito.\n');
