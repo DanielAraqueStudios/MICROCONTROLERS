@@ -2,6 +2,16 @@
 #include <string.h> // Para usar strlen
 #include <stdio.h>  // Para usar sprintf
 
+
+//var for adc 2 and 3
+
+uint16_t digital2;
+uint16_t digital3;
+
+
+float voltaje2;
+float voltaje3;
+
 // Variables globales para almacenar valores de ADC y voltaje
 volatile double adc1_value = 0;
 volatile double volt1 = 0;
@@ -28,7 +38,38 @@ int USART3_SendChar(int value);
 char rx_buffer[32];
 int rx_index = 0;
 
+void adc2(){
+    //ADC2
+    RCC->AHB1ENR |= (1<<2);         // Habilita GPIOC
+    GPIOC->MODER |= (0b11<<0);      // PC0 como analógico
+    RCC->APB2ENR |= (1<<9);         // Habilita reloj ADC2
+    ADC2->CR1 &= ~(0b11<<24);       // Resolución 12 bits
+    ADC2->CR2 |= (1<<0);            // Enciende ADC2
+    ADC2->CR2 |= (1<<10);           // EOC después de cada conversión
+    ADC2->SMPR1 |= (0b111<<0);      // 480 ciclos de muestreo
+    ADC2->SQR3 = 10;                // Canal 10
+}
+
+void adc3(){
+    //ADC3
+    RCC->AHB1ENR |= (1<<5);         // Habilita GPIOF
+    GPIOF->MODER |= (0b11<<6);      // PF3 como analógico
+    RCC->APB2ENR |= (1<<10);        // Habilita reloj ADC3
+    ADC3->CR1 &= ~(0b11<<24);       // Resolución 12 bits
+    ADC3->CR2 |= (1<<0);            // Enciende ADC3
+    ADC3->CR2 |= (1<<10);           // EOC después de cada conversión
+    ADC3->SMPR2 |= (0b111<<0);      // 480 ciclos
+    ADC3->SQR3 = 9;                 // Canal 9
+}
+
 int main() {
+
+    //ADC 2 AND 3
+    adc2();
+    adc3();
+    // ================================ INICIALIZACIÓN ==============================
+
+
     // USART3 (PB10 TX, PB11 RX)
     RCC->AHB1ENR |= 0xFF;                     // Habilitar relojes AHB1 (GPIOs)
     RCC->APB1ENR |= (1 << 18);                // Habilitar reloj para USART3
@@ -88,8 +129,33 @@ int main() {
 
     // ================================ LOOP PRINCIPAL ==============================
     while (1) {
-        count_TIM = TIM7->CNT;   // Lectura del contador de TIM7 (debug)
-        count_TIM5 = TIM5->CNT;  // Lectura del contador de TIM5 (debug)  
+
+
+        // Lectura ADC2
+        ADC2->CR2 |= (1<<30); 
+        while(!(ADC2->SR & (1<<1))); 
+        ADC2->SR &= ~(1<<1);
+        digital2 = ADC2->DR;
+        voltaje2 = (float)digital2*(3.3/4096.0);
+
+        // Lectura ADC3
+        ADC3->CR2 |= (1<<30);   
+        while(!(ADC3->SR & (1<<1)));
+        ADC3->SR &= ~(1<<1);
+        digital3 = ADC3->DR;
+        voltaje3 = (float)digital3*(3.3/4096.0);
+
+
+        // Enviar todos los valores por UART
+        char buffer[64];
+        int len = sprintf(buffer, "V1=%.2f,V2=%.2f,V3=%.2f\n", 
+                         VoltajeProm1, voltaje2, voltaje3);
+        for(int i = 0; i < len; i++) {
+            USART3_SendChar(buffer[i]);
+        }
+
+        // Pequeño delay para no saturar la comunicación
+        for(volatile int i = 0; i < 1000; i++);
     }
 }
 
