@@ -1,4 +1,4 @@
-classdef STM32VoltageMonitor < handle
+classdef STM32VoltageMonitorv9999999 < handle
     properties
         % Configuración del puerto serial
         serialPort = 'COM21';  

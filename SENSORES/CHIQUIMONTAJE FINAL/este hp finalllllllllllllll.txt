@@ -1,0 +1,554 @@
+classdef STM32VoltageMonitor < handle
+    properties
+        % Configuración del puerto serial
+        serialPort = 'COM7';  
+        baudRate = 9600;     % Cambiado a 115200 si tu STM32 lo envía a esa velocidad
+        
+        % Configuración de la gráfica
+        maxPoints = 500;  
+        startScroll = 50;
+        scrollMargin = 5;
+        
+        % Objetos de MATLAB
+        serialObj;
+        fig;
+        ax;
+        linePlot;
+        
+        % Datos
+        timePoints = [];
+        voltPoints = [];
+        sampleCount = 0;
+        lastVolt = 0;
+        
+        % Constantes
+        DEFAULT_ARR = 15999;
+        CLOCK_FREQ = 16000000; % 16 MHz
+        
+        % Timer para actualización
+        updateTimer;
+        
+        % Umbrales de respiración
+        INHALE_THRESHOLD = 1.2;  
+        EXHALE_THRESHOLD = 1.2;  
+        lastBreathState = 1;     
+        
+        % Conteo de respiraciones
+        breathCount = 0;
+        lastBreathTime = 0;
+        
+        % UI Elements
+        warningText;   % Texto de advertencia en GUI
+        warningImage;  % Imagen de advertencia
+        imageAxes;     % Axes para la imagen
+        
+        % Límites de voltaje
+        VOLTAGE_MIN = 0;
+        VOLTAGE_MAX = 3.3;
+        
+        % BPM properties
+        bpmDisplay;         
+        peakThreshold = 0.5;    
+        minPeakHeight = 1.2;    
+        lastPeakTime = 0;
+        peakTimes = [];         
+        bpmValue = 0;
+        sampleRate = 100;       
+        
+        % BPM detection properties
+        windowSize = 20;        
+        lastValues = [];        
+        isPeakDetected = false;  
+        minPeakDistance = 0.2;   
+        
+        % Additional axes
+        axRespiration;    
+        axSweat;          
+        respirationPlot;  
+        sweatPie;         
+        sweatText;        
+        
+        % Additional data
+        lastVolt2 = 0;    
+        lastVolt3 = 0;    
+        timePoints2 = []; 
+        voltPoints2 = []; 
+        
+        % Peak detection properties
+        peakIndicator;     
+        lastPeakValue = 0; 
+        
+        % Filtrado de señal de respiración
+        respFilterWindow = 30;    
+        respBuffer = [];          
+        smoothingFactor = 0.95;   
+        lastSmoothedValue = 0;    
+        
+        % Zoom dinámico
+        minVolt1 = 3.3;      
+        maxVolt1 = 0;        
+        minVolt2 = 3.3;      
+        maxVolt2 = 0;        
+        dynamicMargin = 0.1; 
+        
+        % === PROTOCOLO DE RESPIRACIÓN: Nuevas propiedades ===
+        sweatStressThreshold = 15;   
+        respRateMax = 20;            
+        hrStressThreshold = 100;     
+        
+        axBall;                 
+        ball;                   
+        breathTimer;            
+        isBreathing = false;    
+        breathRadius = 0.2;     
+        breathDirection = 1;    
+        breathMin = 0.2;        
+        breathMax = 0.4;        
+        breathStep = 0.005;     
+        
+        % Ventana de alerta de estrés
+        stressFig;              
+        stressText;             
+        % === FIN PROTOCOLO ===
+    end
+    
+    methods
+        function obj = STM32VoltageMonitor()
+            % Constructor: crea UI, abre puerto serial y arranca timers
+            obj.createUI();  
+            
+            try
+                obj.serialObj = serialport(obj.serialPort, obj.baudRate);
+                configureTerminator(obj.serialObj, "LF");
+                disp(['Conectado al puerto serial: ' obj.serialPort]);
+            catch e
+                errordlg(['Error al abrir el puerto serial: ' e.message], 'Error de conexión');
+                return;
+            end
+            
+            obj.updateTimer = timer(...
+                'ExecutionMode', 'fixedRate', ...
+                'Period', 0.001, ...  
+                'TimerFcn', @(,) obj.updatePlot());
+            start(obj.updateTimer);
+            
+            obj.breathTimer = timer(...
+                'ExecutionMode', 'fixedRate', ...
+                'Period', 0.05, ...   
+                'TimerFcn', @(,) obj.animateBreathing());
+        end
+        
+        
+        function createUI(obj)
+            % Crea la figura y todos los ejes / elementos de UI,
+            % dejando intacta la lectura y posicionando la bola a la derecha.
+            
+            obj.fig = figure(...
+                'Name', 'Monitor Multiparámetro', ...
+                'NumberTitle', 'off', ...
+                'Position', [100 100 1400 900], ...
+                'Color', [0.1 0.1 0.1], ...
+                'CloseRequestFcn', @(,) obj.closeFigure());
+            
+            % === ECG Plot (izquierda, arriba) ===
+            obj.ax = axes(...
+                'Parent', obj.fig, ...
+                'Position', [0.05 0.55 0.60 0.40], ...  
+                'Color', [0.12 0.12 0.12], ...
+                'XColor', [0.7 0.7 0.7], ...
+                'YColor', [0.7 0.7 0.7], ...
+                'GridColor', [0.2 0.2 0.2], ...
+                'GridAlpha', 0.3, ...
+                'YTick', 0:0.5:3.3);
+            title(obj.ax, 'ECG', 'Color', [0.8 0.8 0.8], 'FontWeight', 'bold');
+            xlabel(obj.ax, 'Tiempo (s)', 'Color', [0.7 0.7 0.7]);
+            ylabel(obj.ax, 'Voltaje (V)', 'Color', [0.7 0.7 0.7]);
+            grid(obj.ax, 'on');
+            ylim(obj.ax, [0 3.3]);
+            obj.linePlot = line(obj.ax, NaN, NaN, ...
+                'Color', [0.3 0.8 1], ...
+                'LineWidth', 1.5);
+            
+            % === Respiración Plot (izquierda, abajo) ===
+            obj.axRespiration = axes(...
+                'Parent', obj.fig, ...
+                'Position', [0.05 0.10 0.60 0.40], ...
+                'Color', [0.12 0.12 0.12], ...
+                'XColor', [0.7 0.7 0.7], ...
+                'YColor', [0.7 0.7 0.7], ...
+                'GridColor', [0.2 0.2 0.2], ...
+                'GridAlpha', 0.3, ...
+                'YTick', 1.3:0.02:1.6);
+            title(obj.axRespiration, 'Patrón de Respiración', 'Color', [0.8 0.8 0.8], 'FontWeight', 'bold');
+            xlabel(obj.axRespiration, 'Tiempo (s)', 'Color', [0.7 0.7 0.7]);
+            ylabel(obj.axRespiration, 'Voltaje (V)', 'Color', [0.7 0.7 0.7]);
+            grid(obj.axRespiration, 'on');
+            ylim(obj.axRespiration, [1.3 1.6]);
+            obj.respirationPlot = line(obj.axRespiration, NaN, NaN, ...
+                'Color', [0.3 1 0.5], ...
+                'LineWidth', 1.5);
+            
+            % === Sudor (conductancia) (derecha, centro) ===
+            obj.axSweat = polaraxes(...
+                'Parent', obj.fig, ...
+                'Position', [0.70 0.45 0.25 0.30], ...
+                'Color', [0.12 0.12 0.12]);
+            hold(obj.axSweat, 'on');
+            obj.axSweat.ThetaGrid = 'off';
+            obj.axSweat.RGrid = 'off';
+            obj.axSweat.ThetaTickLabels = {};
+            obj.axSweat.RTickLabels = {};
+            obj.sweatPie = polarplot(obj.axSweat, [0 0], [0 1], '-r', 'LineWidth', 3);
+            title(obj.axSweat, 'CONDUCTANCIA', ...
+                'Color', [1 1 1], ...
+                'FontWeight', 'bold', ...
+                'FontSize', 12);
+            obj.sweatText = text(obj.axSweat, 0, 0, '0 μS', ...
+                'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', 'middle', ...
+                'Color', [1 1 1], ...
+                'FontSize', 14, ...
+                'FontWeight', 'bold');
+            
+            % === Panel BPM (derecha, arriba) ===
+            bpmPanel = uipanel(...
+                'Parent', obj.fig, ...
+                'Title', 'Ritmo Cardíaco', ...
+                'Position', [0.70 0.80 0.25 0.15], ...
+                'BackgroundColor', [0.15 0.15 0.15], ...
+                'ForegroundColor', [0.8 0.8 0.8], ...
+                'HighlightColor', [0.3 0.3 0.3], ...
+                'BorderType', 'line', ...
+                'FontWeight', 'bold');
+            obj.bpmDisplay = uicontrol(...
+                'Parent', bpmPanel, ...
+                'Style', 'text', ...
+                'String', '0 BPM', ...
+                'Position', [10 10 200 50], ...
+                'BackgroundColor', [0.12 0.12 0.12], ...
+                'ForegroundColor', [0 1 0], ...
+                'FontSize', 20, ...
+                'FontWeight', 'bold');
+            obj.peakIndicator = uipanel(...
+                'Parent', bpmPanel, ...
+                'Position', [220 35 20 20], ...
+                'BackgroundColor', [0.2 0.2 0.2], ...
+                'BorderType', 'none');
+            
+            % === Texto de advertencia (derecha, debajo del sudor) ===
+            obj.warningText = uicontrol(...
+                'Parent', obj.fig, ...
+                'Style', 'text', ...
+                'Position', [0.70 0.35 0.25 0.05], ...
+                'String', '¡Cálmate! Respira lentamente con la bola', ...
+                'BackgroundColor', [0.8 0.2 0.2], ...
+                'ForegroundColor', [1 1 1], ...
+                'FontSize', 12, ...
+                'Visible', 'off');
+            
+            % === Ejes y bola de respiración (derecha, abajo) ===
+            obj.axBall = axes(...
+                'Parent', obj.fig, ...
+                'Position', [0.70 0.10 0.25 0.20], ...
+                'Color', [0.1 0.1 0.1]);
+            axis(obj.axBall, 'off');
+            xlim(obj.axBall, [0 1]);
+            ylim(obj.axBall, [0 1]);
+            obj.axBall.Visible = 'off';  
+            theta = linspace(0, 2*pi, 50);
+            r = obj.breathRadius;
+            x = r*cos(theta) + 0.5;
+            y = r*sin(theta) + 0.5;
+            obj.ball = patch(...
+                'XData', x, ...
+                'YData', y, ...
+                'FaceColor', [0.3 0.8 1], ...
+                'Parent', obj.axBall);
+        end
+        
+        
+        function sendCommand(obj, cmd)
+            try
+                writeline(obj.serialObj, cmd);
+            catch e
+                errordlg(['Error enviando comando: ' e.message], 'Error');
+            end
+        end
+
+        
+        function updatePlot(obj)
+            if obj.serialObj.NumBytesAvailable > 0
+                line = readline(obj.serialObj);
+                obj.parseData(line);
+                
+                if obj.lastVolt ~= 0
+                    obj.sampleCount = obj.sampleCount + 1;
+                    currentTime = obj.sampleCount / obj.sampleRate; 
+                    
+                    % ===== 1) Detección de picos (ECG) =====
+                    obj.lastValues(end+1) = obj.lastVolt;
+                    if length(obj.lastValues) > obj.windowSize
+                        obj.lastValues = obj.lastValues(end-obj.windowSize+1:end);
+                    end
+                    if length(obj.lastValues) >= 3
+                        middleValue = obj.lastValues(ceil(end/2));
+                        meanValue = mean(obj.lastValues);
+                        isAboveThresh = middleValue > (meanValue * 1.2);
+                        if isAboveThresh && ~obj.isPeakDetected && ...
+                           (currentTime - obj.lastPeakTime) > obj.minPeakDistance
+                            
+                            obj.peakTimes(end+1) = currentTime;
+                            obj.lastPeakTime = currentTime;
+                            obj.isPeakDetected = true;
+                            
+                            set(obj.peakIndicator, 'BackgroundColor', [1 0 0]);
+                            pause(0.05);
+                            set(obj.peakIndicator, 'BackgroundColor', [0.2 0.2 0.2]);
+                            
+                            if length(obj.peakTimes) > 1
+                                recentPeaks = obj.peakTimes(max(1,end-4):end);
+                                intervals = diff(recentPeaks);
+                                avgInterval = mean(intervals);
+                                newBPM = round(60 / avgInterval) - 20;
+                                if newBPM >= 40 && newBPM <= 180
+                                    obj.bpmValue = newBPM;
+                                    set(obj.bpmDisplay, 'String', sprintf('%d BPM', obj.bpmValue));
+                                    if obj.bpmValue < 60
+                                        set(obj.bpmDisplay, 'ForegroundColor', [1 1 0]);
+                                    elseif obj.bpmValue > 100
+                                        set(obj.bpmDisplay, 'ForegroundColor', [1 0 0]);
+                                    else
+                                        set(obj.bpmDisplay, 'ForegroundColor', [0 1 0]);
+                                    end
+                                end
+                            end
+                            if length(obj.peakTimes) > 10
+                                obj.peakTimes = obj.peakTimes(end-9:end);
+                            end
+                        elseif ~isAboveThresh
+                            obj.isPeakDetected = false;
+                        end
+                    end
+                    
+                    % ===== 2) Suavizado de respiración =====
+                    obj.respBuffer(end+1) = 3.3 - obj.lastVolt2;
+                    if length(obj.respBuffer) > obj.respFilterWindow
+                        obj.respBuffer = obj.respBuffer(end-obj.respFilterWindow+1:end);
+                    end
+                    if ~isempty(obj.respBuffer)
+                        currentMean = mean(obj.respBuffer);
+                        if isempty(obj.lastSmoothedValue)
+                            obj.lastSmoothedValue = currentMean;
+                        end
+                        smoothedValue = obj.smoothingFactor * obj.lastSmoothedValue + ...
+                                       (1 - obj.smoothingFactor) * currentMean;
+                        obj.lastSmoothedValue = smoothedValue;
+                        
+                        obj.timePoints2(end+1) = obj.sampleCount;
+                        obj.voltPoints2(end+1) = smoothedValue;
+                        if length(obj.timePoints2) > obj.maxPoints
+                            obj.timePoints2 = obj.timePoints2(end-obj.maxPoints+1:end);
+                            obj.voltPoints2 = obj.voltPoints2(end-obj.maxPoints+1:end);
+                        end
+                        set(obj.respirationPlot, 'XData', obj.timePoints2, 'YData', obj.voltPoints2);
+                    end
+                    
+                    if obj.lastSmoothedValue > obj.INHALE_THRESHOLD && obj.lastBreathState ~= 2
+                        obj.breathCount = obj.breathCount + 1;
+                        obj.lastBreathState = 2;
+                    elseif obj.lastSmoothedValue < obj.EXHALE_THRESHOLD && obj.lastBreathState ~= 0
+                        obj.lastBreathState = 0;
+                    end
+                    respirationRate = (obj.breathCount * 60) / currentTime;
+                    
+                    % ===== 3) Actualizar gráficas =====
+                    obj.timePoints(end+1) = obj.sampleCount;
+                    obj.voltPoints(end+1) = obj.lastVolt;
+                    if length(obj.timePoints) > obj.maxPoints + obj.scrollMargin
+                        obj.timePoints = obj.timePoints(end-obj.maxPoints-obj.scrollMargin+1:end);
+                        obj.voltPoints = obj.voltPoints(end-obj.maxPoints-obj.scrollMargin+1:end);
+                    end
+                    set(obj.linePlot, 'XData', obj.timePoints, 'YData', obj.voltPoints);
+                    
+                    sweatPercentage = obj.lastVolt3 * 15.15;
+                    theta = linspace(0, 2*pi * (sweatPercentage/50), 50);
+                    set(obj.sweatPie, 'ThetaData', theta, 'RData', ones(size(theta)));
+                    set(obj.sweatText, 'String', sprintf('%.1f μS', sweatPercentage));
+                    
+                    fprintf('ECG=%.2fV | RespRaw=%.2fV | SweatRaw=%.2fV | BPM=%d | RPM=%.1f\n', ...
+                        obj.lastVolt, obj.lastVolt2, obj.lastVolt3, obj.bpmValue, respirationRate);
+                    
+                    if obj.sampleCount > obj.startScroll
+                        xlim(obj.ax, [max(1, obj.sampleCount - obj.maxPoints), obj.sampleCount]);
+                        xlim(obj.axRespiration, [max(1, obj.sampleCount - obj.maxPoints), obj.sampleCount]);
+                    end
+                    drawnow limitrate;
+                    
+                    % ===== 4) Detección de estrés =====
+                    isSweatStress = (sweatPercentage > obj.sweatStressThreshold);
+                    isRespStress  = (respirationRate > obj.respRateMax);
+                    isHRStress    = (obj.bpmValue > obj.hrStressThreshold);
+                    stressDetected = (isSweatStress || isRespStress || isHRStress);
+                    
+                    triggeredSensors = {};
+                    if isSweatStress
+                        triggeredSensors{end+1} = sprintf('Sudoración: %.1f μS (> %d μS)', ...
+                            sweatPercentage, obj.sweatStressThreshold);
+                    end
+                    if isRespStress
+                        triggeredSensors{end+1} = sprintf('Respiración: %.1f rpm (> %d rpm)', ...
+                            respirationRate, obj.respRateMax);
+                    end
+                    if isHRStress
+                        triggeredSensors{end+1} = sprintf('Ritmo cardíaco: %d bpm (> %d bpm)', ...
+                            obj.bpmValue, obj.hrStressThreshold);
+                    end
+                    
+                    if stressDetected && ~obj.isBreathing
+                        obj.startBreathingProtocol();
+                        obj.showStressWindow(triggeredSensors);
+                    elseif stressDetected && obj.isBreathing
+                        obj.updateStressWindow(triggeredSensors);
+                    elseif ~stressDetected && obj.isBreathing
+                        obj.stopBreathingProtocol();
+                        obj.closeStressWindow();
+                    end
+                end
+            end
+        end
+        
+        
+        function parseData(obj, line)
+            try
+                line = strtrim(line);
+                parts = strsplit(line, ',');
+                for i = 1:length(parts)
+                    if startsWith(parts{i}, 'V1=')
+                        obj.lastVolt = str2double(extractAfter(parts{i}, 'V1='));
+                        if isnan(obj.lastVolt), obj.lastVolt = 0; end
+                    elseif startsWith(parts{i}, 'V2=')
+                        obj.lastVolt2 = str2double(extractAfter(parts{i}, 'V2='));
+                        if isnan(obj.lastVolt2), obj.lastVolt2 = 0; end
+                    elseif startsWith(parts{i}, 'V3=')
+                        obj.lastVolt3 = str2double(extractAfter(parts{i}, 'V3='));
+                        if isnan(obj.lastVolt3), obj.lastVolt3 = 0; end
+                    end
+                end
+                fprintf('V1=%.2f | V2=%.2f | V3=%.2f\n', ...
+                    obj.lastVolt, obj.lastVolt2, obj.lastVolt3);
+            catch e
+                disp(['Error procesando dato: ' line]);
+                disp(e.message);
+            end
+        end
+        
+        
+        % === PROTOCOLO DE RESPIRACIÓN: Métodos nuevos ===
+        
+        function startBreathingProtocol(obj)
+            obj.isBreathing = true;
+            obj.axBall.Visible = 'on';
+            obj.warningText.Visible = 'on';
+            start(obj.breathTimer);
+        end
+        
+        function stopBreathingProtocol(obj)
+            obj.isBreathing = false;
+            if ~isempty(obj.breathTimer) && strcmp(obj.breathTimer.Running, 'on')
+                stop(obj.breathTimer);
+            end
+            obj.axBall.Visible = 'off';
+            obj.warningText.Visible = 'off';
+        end
+        
+        function animateBreathing(obj)
+            obj.breathRadius = obj.breathRadius + obj.breathDirection * obj.breathStep;
+            if obj.breathRadius >= obj.breathMax
+                obj.breathRadius = obj.breathMax;
+                obj.breathDirection = -1;
+            elseif obj.breathRadius <= obj.breathMin
+                obj.breathRadius = obj.breathMin;
+                obj.breathDirection = 1;
+            end
+            theta = linspace(0, 2*pi, 50);
+            x = obj.breathRadius * cos(theta) + 0.5;
+            y = obj.breathRadius * sin(theta) + 0.5;
+            set(obj.ball, 'XData', x, 'YData', y);
+            drawnow limitrate;
+        end
+        
+        function showStressWindow(obj, sensorMessages)
+            if isempty(obj.stressFig) || ~isvalid(obj.stressFig)
+                obj.stressFig = figure(...
+                    'Name', 'Alerta de Estrés', ...
+                    'NumberTitle', 'off', ...
+                    'MenuBar', 'none', ...
+                    'ToolBar', 'none', ...
+                    'Position', [200 200 350 160], ...
+                    'Color', [0.95 0.95 0.95], ...
+                    'Resize', 'off');
+                obj.stressText = uicontrol(...
+                    'Parent', obj.stressFig, ...
+                    'Style', 'text', ...
+                    'Position', [10 10 330 140], ...
+                    'HorizontalAlignment', 'left', ...
+                    'FontSize', 12, ...
+                    'BackgroundColor', [0.95 0.95 0.95], ...
+                    'ForegroundColor', [0.7 0 0]);
+            end
+            
+            msg = sprintf('¡Estrés detectado en:\n');
+            for k = 1:length(sensorMessages)
+                msg = [msg, '  • ', sensorMessages{k}, '\n'];
+            end
+            set(obj.stressText, 'String', msg);
+        end
+        
+        function updateStressWindow(obj, sensorMessages)
+            if ~isempty(obj.stressFig) && isvalid(obj.stressFig)
+                msg = sprintf('¡Estrés detectado en:\n');
+                for k = 1:length(sensorMessages)
+                    msg = [msg, '  • ', sensorMessages{k}, '\n'];
+                end
+                set(obj.stressText, 'String', msg);
+            else
+                obj.showStressWindow(sensorMessages);
+            end
+        end
+        
+        function closeStressWindow(obj)
+            if ~isempty(obj.stressFig) && isvalid(obj.stressFig)
+                close(obj.stressFig);
+                obj.stressFig = [];
+                obj.stressText = [];
+            end
+        end
+        
+        % === FIN PROTOCOLO ===
+        
+        function closeFigure(obj)
+            if ~isempty(obj.updateTimer) && isa(obj.updateTimer, 'timer')
+                if strcmp(obj.updateTimer.Running, 'on')
+                    stop(obj.updateTimer);
+                end
+                delete(obj.updateTimer);
+            end
+            
+            if ~isempty(obj.breathTimer) && isa(obj.breathTimer, 'timer')
+                if strcmp(obj.breathTimer.Running, 'on')
+                    stop(obj.breathTimer);
+                end
+                delete(obj.breathTimer);
+            end
+            
+            obj.closeStressWindow();
+            
+            if ~isempty(obj.serialObj) && isvalid(obj.serialObj)
+                delete(obj.serialObj);
+            end
+            
+            delete(obj.fig);
+            disp('Monitor finalizado');
+        end
+    end
+end

@@ -90,6 +90,37 @@ classdef STM32VoltageMonitor < handle
         minVolt2 = 3.3;      % Mínimo valor respiración
         maxVolt2 = 0;        % Máximo valor respiración
         dynamicMargin = 0.1; % Margen para el zoom (10%)
+        
+        % Umbrales de Biofeedback
+        AGE_GROUP = '20-29';     % Grupo de edad predeterminado
+        BPM_THRESHOLDS = struct(...
+            'EXCELLENT', 60, ...  % 60 o menos
+            'GOOD', [62 68], ...  % Entre 62-68
+            'NORMAL', [70 84], ... % Entre 70-84
+            'INADEQUATE', 86);    % 86 o más
+            
+        GSR_THRESHOLDS = struct(...
+            'CALM', [1 5], ...    % Reposo: 1-5 μS
+            'MILD', [5 15], ...   % Ligeramente agitado: 5-15 μS
+            'STRESS', [15 50]);   % Estrés: 15-50 μS
+            
+        % Estado del protocolo
+        protocolActive = false;
+        protocolPanel;           % Panel para mostrar estado
+        stateLabel;             % Etiqueta de estado
+        
+        % Nueva propiedad para control de teclas
+        keyPressActive = false;  
+        
+        % Propiedades del protocolo de respiración
+        breathingPhase = 0;      % 0: inactivo, 1: inhalar, 2: mantener, 3: exhalar
+        breathingTimer;          % Timer para las fases de respiración
+        breathCycleCount = 0;    % Contador de ciclos completados
+        targetCycles = 4;        % Número mínimo de ciclos a completar
+        
+        % Textos del protocolo
+        instructionText;         % Texto de instrucción actual
+        cycleCountText;          % Texto contador de ciclos
     end
     
     methods
@@ -97,7 +128,6 @@ classdef STM32VoltageMonitor < handle
             % Inicializar la interfaz
             obj.createUI();
             
-            % Configurar el puerto serial
             try
                 obj.serialObj = serialport(obj.serialPort, obj.baudRate);
                 configureTerminator(obj.serialObj, "LF");
@@ -107,39 +137,67 @@ classdef STM32VoltageMonitor < handle
                 return;
             end
             
-            % Configurar timer para actualización
+            % Corregir la sintaxis de los callbacks del timer
             obj.updateTimer = timer(...
                 'ExecutionMode', 'fixedRate', ...
-                'Period', 0.001, ...  % Cambiado de 0.1 a 0.001 segundos (1ms)
-                'TimerFcn', @(src,event)obj.updatePlot());
+                'Period', 0.001, ...
+                'TimerFcn', @(src,event)updatePlot(obj));  % Corregido
             
             start(obj.updateTimer);
+            
+            % Configurar el timer para la animación de la bola
+            obj.breathTimer = timer(...
+                'ExecutionMode', 'fixedRate', ...
+                'Period', 0.05, ...
+                'TimerFcn', @(src,event)animateBreathing(obj));  % Corregido
         end
-        
+
         function createUI(obj)
             % Crear figura con tema oscuro
             obj.fig = figure('Name', 'Monitor Multiparámetro', ...
                 'NumberTitle', 'off', ...
-                'Position', [100 100 1300 900], ...  % Increased size more
-                'Color', [0.1 0.1 0.1], ...         % Darker background
-                'CloseRequestFcn', @(src,event)obj.closeFigure());
+                'Position', [100 100 1300 900], ...
+                'Color', [0.1 0.1 0.1], ...
+                'CloseRequestFcn', @(src,event)obj.closeFigure(), ...
+                'KeyPressFcn', @(src,event)obj.keyPressCallback(event));  % Añadir detector de teclas
             
-            % ECG Plot (top)
+            % ECG Plot (top) - Estilo más realista
             obj.ax = axes('Parent', obj.fig, ...
                 'Position', [0.15 0.57 0.75 0.35], ...
-                'Color', [0.12 0.12 0.12], ...
-                'XColor', [0.7 0.7 0.7], ...
-                'YColor', [0.7 0.7 0.7], ...
-                'GridColor', [0.2 0.2 0.2], ...
+                'Color', [0.05 0.05 0.05], ...        % Fondo más oscuro
+                'XColor', [0.4 0.8 0.4], ...          % Verde suave para ejes
+                'YColor', [0.4 0.8 0.4], ...
+                'GridColor', [0.2 0.4 0.2], ...       % Cuadrícula verde oscuro
                 'GridAlpha', 0.3, ...
-                'YTick', 0:0.5:3.3);  % Marcas cada 0.5V
+                'MinorGridColor', [0.15 0.3 0.15], ...% Cuadrícula menor
+                'MinorGridAlpha', 0.2, ...
+                'YTick', 0:0.5:3.3);
             
-            title(obj.ax, 'ECG', 'Color', [0.8 0.8 0.8], 'FontWeight', 'bold');
-            xlabel(obj.ax, 'Tiempo (s)', 'Color', [0.7 0.7 0.7]);
-            ylabel(obj.ax, 'Voltaje (V)', 'Color', [0.7 0.7 0.7]);
+            % Configurar cuadrícula para parecer papel de ECG
             grid(obj.ax, 'on');
-            ylim(obj.ax, [0 3.3]);
+            obj.ax.GridAlpha = 0.3;
+            obj.ax.MinorGridLineStyle = '-';
+            obj.ax.XMinorGrid = 'on';
+            obj.ax.YMinorGrid = 'on';
+            obj.ax.MinorGridAlpha = 0.2;
+            
+            title(obj.ax, 'Electrocardiograma', ...
+                'Color', [0.4 0.8 0.4], ...
+                'FontWeight', 'bold', ...
+                'FontSize', 12);
+            xlabel(obj.ax, 'Tiempo (s)', 'Color', [0.4 0.8 0.4]);
+            ylabel(obj.ax, 'Voltaje (V)', 'Color', [0.4 0.8 0.4]);
+            
+            % Ajustar límites para mejor visualización
+            ylim(obj.ax, [0.5 3]);  % Ajustar rango vertical para centrar mejor la señal
 
+            % Inicializar el plot del ECG con estilo más realista
+            obj.linePlot = line(obj.ax, NaN, NaN, ...
+                'Color', [0 1 0], ...         % Verde brillante como ECG real
+                'LineWidth', 1.75, ...        % Línea más gruesa
+                'LineJoin', 'round', ...      % Suavizar uniones
+                'LineStyle', '-');
+            
             % Respiration Plot (middle)
             obj.axRespiration = axes('Parent', obj.fig, ...
                 'Position', [0.15 0.12 0.75 0.35], ...
@@ -148,13 +206,14 @@ classdef STM32VoltageMonitor < handle
                 'YColor', [0.7 0.7 0.7], ...
                 'GridColor', [0.2 0.2 0.2], ...
                 'GridAlpha', 0.3, ...
-                'YTick', 1.3:0.02:1.6);  % Marcas más precisas y cercanas
+                'YTick', [2.70 2.71 2.72 2.73 2.74 2.75], ...     % Marcas más precisas cada 0.01V
+                'YTickLabel', {'2.70V', '2.71V', '2.72V', '2.73V', '2.74V', '2.75V'}); % Nuevas etiquetas
 
             title(obj.axRespiration, 'Patrón de Respiración', 'Color', [0.8 0.8 0.8], 'FontWeight', 'bold');
             xlabel(obj.axRespiration, 'Tiempo (s)', 'Color', [0.7 0.7 0.7]);
             ylabel(obj.axRespiration, 'Voltaje (V)', 'Color', [0.7 0.7 0.7]);
             grid(obj.axRespiration, 'on');
-            ylim(obj.axRespiration, [1.3 1.6]);  % Rango más estrecho para mayor zoom
+            ylim(obj.axRespiration, [2.70 2.75]);  % Rango de 0.05V (10% de 0.5V)
 
             % Sweat Level Display (right) - Cambiando de barra a círculo
             obj.axSweat = polaraxes('Parent', obj.fig, ...
@@ -242,8 +301,47 @@ classdef STM32VoltageMonitor < handle
             catch
                 warning('No se pudo cargar la imagen de advertencia');
             end
+            
+            % Añadir panel de protocolo
+            obj.protocolPanel = uipanel('Parent', obj.fig, ...
+                'Title', 'Estado del Protocolo', ...
+                'Position', [0.88 0.8 0.1 0.15], ...
+                'BackgroundColor', [0.15 0.15 0.15], ...
+                'ForegroundColor', [0.8 0.8 0.8], ...
+                'FontWeight', 'bold');
+                
+            obj.stateLabel = uicontrol('Parent', obj.protocolPanel, ...
+                'Style', 'text', ...
+                'String', 'INACTIVO', ...
+                'Position', [10 10 120 40], ...
+                'BackgroundColor', [0.12 0.12 0.12], ...
+                'ForegroundColor', [0 1 0], ...
+                'FontSize', 12, ...
+                'FontWeight', 'bold');
+            
+            % Añadir textos de instrucciones
+            obj.instructionText = uicontrol('Parent', obj.fig, ...
+                'Style', 'text', ...
+                'Position', [300 850 700 30], ...
+                'String', 'Presione M para iniciar el protocolo de respiración', ...
+                'BackgroundColor', [0.15 0.15 0.15], ...
+                'ForegroundColor', [1 1 1], ...
+                'FontSize', 14, ...
+                'FontWeight', 'bold', ...
+                'Visible', 'on');
+                
+            obj.cycleCountText = uicontrol('Parent', obj.fig, ...
+                'Style', 'text', ...
+                'Position', [300 820 700 30], ...
+                'String', 'Ciclos: 0/4', ...
+                'BackgroundColor', [0.15 0.15 0.15], ...
+                'ForegroundColor', [1 1 1], ...
+                'FontSize', 12, ...
+                'Visible', 'off');
+                
+            % ...existing code...
         end
-        
+
         function sendCommand(obj, cmd)
             try
                 writeline(obj.serialObj, cmd);
@@ -332,7 +430,7 @@ classdef STM32VoltageMonitor < handle
                     end
                     
                     if ~isempty(obj.respBuffer)
-                        % Aplicar filtro exponencial mejorado con media móvil ponderada
+                        % Calcular valor suavizado
                         currentMean = mean(obj.respBuffer);
                         if isempty(obj.lastSmoothedValue)
                             obj.lastSmoothedValue = currentMean;
@@ -342,7 +440,7 @@ classdef STM32VoltageMonitor < handle
                                       (1 - obj.smoothingFactor) * currentMean;
                         obj.lastSmoothedValue = smoothedValue;
                         
-                        % Actualizar la gráfica con el valor suavizado
+                        % Actualizar datos
                         obj.timePoints2(end+1) = obj.sampleCount;
                         obj.voltPoints2(end+1) = smoothedValue;
                         
@@ -351,6 +449,41 @@ classdef STM32VoltageMonitor < handle
                             obj.voltPoints2 = obj.voltPoints2(end-obj.maxPoints+1:end);
                         end
                         
+                        % Calcular rango dinámico
+                        if ~isempty(obj.voltPoints2)
+                            currentMin = min(obj.voltPoints2);
+                            currentMax = max(obj.voltPoints2);
+                            range = currentMax - currentMin;
+                            margin = range * 0.2; % 20% de margen
+                            
+                            % Centrar la señal en la ventana
+                            centerPoint = (currentMax + currentMin) / 2;
+                            windowSize = max(range * 1.4, 0.5); % Al menos 0.5V de ventana
+                            
+                            % Actualizar límites de la gráfica
+                            newMin = centerPoint - windowSize/2;
+                            newMax = centerPoint + windowSize/2;
+                            
+                            % Asegurar que los límites estén dentro del rango válido
+                            if newMin < 0
+                                newMin = 0;
+                                newMax = windowSize;
+                            elseif newMax > 3.3
+                                newMax = 3.3;
+                                newMin = 3.3 - windowSize;
+                            end
+                            
+                            % Actualizar etiquetas y límites
+                            set(obj.axRespiration, 'YLim', [newMin newMax]);
+                            
+                            % Actualizar marcas del eje Y
+                            ticks = linspace(newMin, newMax, 5);
+                            set(obj.axRespiration, 'YTick', ticks);
+                            tickLabels = arrayfun(@(x) sprintf('%.2fV', x), ticks, 'UniformOutput', false);
+                            set(obj.axRespiration, 'YTickLabel', tickLabels);
+                        end
+                        
+                        % Actualizar gráfica
                         set(obj.respirationPlot, 'XData', obj.timePoints2, 'YData', obj.voltPoints2);
                     end
                     
@@ -437,5 +570,111 @@ classdef STM32VoltageMonitor < handle
             delete(obj.fig);
             disp('Monitor finalizado');
         end
+        
+        function outOfRange = checkBPMRange(obj)
+            % Verificar BPM según grupo de edad
+            if obj.bpmValue >= obj.BPM_THRESHOLDS.INADEQUATE
+                outOfRange = true;
+            else
+                outOfRange = false;
+            end
+        end
+        
+        function outOfRange = checkGSRRange(obj)
+            % Verificar GSR
+            gsrValue = obj.lastVolt3 * 15.15; % Convertir a μS
+            if gsrValue >= obj.GSR_THRESHOLDS.STRESS(1)
+                outOfRange = true;
+            else
+                outOfRange = false;
+            end
+        end
+        
+        function keyPressCallback(obj, event)
+            switch event.Key
+                case 'm'
+                    if ~obj.protocolActive
+                        obj.activateProtocol();
+                        obj.updateBreathingPhase(); % Iniciar inmediatamente
+                    end
+                case 'n'
+                    if obj.protocolActive
+                        obj.deactivateProtocol();
+                    end
+            end
+        end
+
+        function activateProtocol(obj)
+            obj.protocolActive = true;
+            obj.breathingPhase = 0;
+            obj.breathCycleCount = 0;
+            
+            % Determinar número de ciclos basado en nivel de estrés
+            gsrValue = obj.lastVolt3 * 15.15;
+            if gsrValue > obj.GSR_THRESHOLDS.STRESS(1)
+                obj.targetCycles = 8;
+            else
+                obj.targetCycles = 4;
+            end
+            
+            % Configurar timer de respiración
+            obj.breathingTimer = timer(...
+                'ExecutionMode', 'fixedRate', ...
+                'Period', 1, ...
+                'TimerFcn', @(~,~)obj.updateBreathingPhase());
+            
+            % Mostrar primer mensaje del protocolo usando formato correcto
+            instruccionTexto = ['Inhale lentamente por la nariz durante cuatro segundos, ' ...
+                'llenando sus pulmones de aire de forma progresiva.\n\n' ...
+                'Mantenga la respiración durante siete segundos, ' ...
+                'permitiendo que el oxígeno se distribuya y el cuerpo comience a relajarse.\n\n' ...
+                'Exhale lentamente por la boca durante ocho segundos, ' ...
+                'liberando el aire de forma controlada y sintiendo cómo se disipa la tensión acumulada.'];
+            
+            set(obj.instructionText, 'String', instruccionTexto, 'Visible', 'on');
+            
+            set(obj.cycleCountText, 'String', ...
+                sprintf('Ciclos: %d/%d', obj.breathCycleCount, obj.targetCycles), ...
+                'Visible', 'on');
+            
+            set(obj.stateLabel, 'String', 'PROTOCOLO ACTIVO', ...
+                              'ForegroundColor', [1 0 0]);
+        end
+
+        function deactivateProtocol(obj)
+            obj.protocolActive = false;
+            
+            % Limpiar temporizador de respiración si existe
+            if ~isempty(obj.breathingTimer) && isvalid(obj.breathingTimer)
+                stop(obj.breathingTimer);
+                delete(obj.breathingTimer);
+            end
+            
+            % Limpiar mensajes
+            set(obj.instructionText, 'String', '', 'Visible', 'off');
+            set(obj.cycleCountText, 'Visible', 'off');
+            set(obj.stateLabel, 'String', 'INACTIVO', ...
+                              'ForegroundColor', [0 1 0]);
+            
+            obj.breathingPhase = 0;
+            obj.breathCycleCount = 0;
+        end
+        
+        % Eliminar esta función duplicada y mantener solo la primera definición
+        % function keyPressCallback(obj, event)
+        %    switch event.Key
+        %        case 'm'
+        %            if ~obj.protocolActive
+        %                obj.activateProtocol();
+        %                obj.keyPressActive = true;
+        %            elseif obj.breathingPhase == 0
+        %                obj.updateBreathingPhase();
+        %            end
+        %        case 'n'
+        %            if obj.protocolActive
+        %                obj.deactivateProtocol();
+        %            end
+        %    end
+        % end
     end
 end
