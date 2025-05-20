@@ -27,6 +27,10 @@ int Muestra1 = 10;  // Valor por defecto para evitar división por cero
 
 volatile double VoltajeProm1 = 0;
 volatile double SumaVoltaje1 = 0;
+volatile double SumaVoltaje2 = 0;
+volatile double SumaVoltaje3 = 0;
+volatile double VoltajeProm2 = 0;
+volatile double VoltajeProm3 = 0;
 int Contador1 = 0;
 
 int AlternadorUnidades = 0;
@@ -165,25 +169,47 @@ extern "C" {
 // ---------- TIM7_IRQHandler: Leer ADC1 (PA0) cada 0.1 s ----------
 void TIM7_IRQHandler(void) {
     TIM7->SR &= ~(1 << 0);             // Limpia bandera de interrupción    
+    
+    SumaVoltaje1 = 0;
+    SumaVoltaje2 = 0;
+    SumaVoltaje3 = 0;
         
     for(int i = 0; i < Muestra1; i++){
-        ADC1->CR2 |= (1 << 30);            // Inicia conversión por software
-        while (!(ADC1->SR & (1 << 1)));    // Espera fin de conversión (EOC)
-        adc1_value = ADC1->DR;             // Lee valor
-        volt1 = (adc1_value * 3.3) / 4095.0; // Conversión a voltaje (12 bits)
-        ADC1->SR &= ~(1 << 1);             // Limpia bandera EOC
-        
-        // Cálculo del promedio para el sensor 1
+        // Leer ADC1
+        ADC1->CR2 |= (1 << 30);            
+        while (!(ADC1->SR & (1 << 1)));    
+        adc1_value = ADC1->DR;             
+        volt1 = (adc1_value * 3.3) / 4095.0;
+        ADC1->SR &= ~(1 << 1);             
         SumaVoltaje1 += volt1;
+
+        // Leer ADC2
+        ADC2->CR2 |= (1<<30); 
+        while(!(ADC2->SR & (1<<1))); 
+        ADC2->SR &= ~(1<<1);
+        digital2 = ADC2->DR;
+        voltaje2 = (float)digital2*(3.3/4096.0);
+        SumaVoltaje2 += voltaje2;
+
+        // Leer ADC3
+        ADC3->CR2 |= (1<<30);   
+        while(!(ADC3->SR & (1<<1)));
+        ADC3->SR &= ~(1<<1);
+        digital3 = ADC3->DR;
+        voltaje3 = (float)digital3*(3.3/4096.0);
+        SumaVoltaje3 += voltaje3;
     }       
     
+    // Calcular promedios
     VoltajeProm1 = SumaVoltaje1 / Muestra1;
-    SumaVoltaje1 = 0;
+    VoltajeProm2 = SumaVoltaje2 / Muestra1;
+    VoltajeProm3 = SumaVoltaje3 / Muestra1;
 
-    // Envía los valores por USART3 en formato legible
-    char buffer[32];
-    int len1 = sprintf(buffer, "V1=%.2f\n", VoltajeProm1);
-    for (int i = 0; i < len1; i++) {
+    // Envía los valores promediados por USART3
+    char buffer[64];
+    int len = sprintf(buffer, "V1=%.2f,V2=%.2f,V3=%.2f\n", 
+                     VoltajeProm1, VoltajeProm2, VoltajeProm3);
+    for (int i = 0; i < len; i++) {
         USART3_SendChar(buffer[i]);
     }
 }
