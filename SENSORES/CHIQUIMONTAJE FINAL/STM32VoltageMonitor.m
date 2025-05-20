@@ -5,7 +5,7 @@ classdef STM32VoltageMonitor < handle
         baudRate = 9600;     % Cambiado de 9600 a 115200 baudios
         
         % Configuración de la gráfica
-        maxPoints = 100;  % Reducido para mejor visualización
+        maxPoints = 500;  % Aumentado para mejor visualización
         startScroll = 50;
         scrollMargin = 5;
         
@@ -46,16 +46,17 @@ classdef STM32VoltageMonitor < handle
         VOLTAGE_MIN = 0;
         VOLTAGE_MAX = 3.3;
         
-        % BPM properties
-        bpmText;           % Text display for BPM
-        lastPeakTime = 0;  % Time of last peak
-        peakThreshold = 2; % Voltage threshold for peak detection
-        bpmValue = 0;      % Current BPM value
-        peakTimes = [];    % Array to store peak times
-        MAX_PEAK_WINDOW = 10; % Maximum number of peaks to consider
+        % BPM properties - Unificación de propiedades BPM
+        bpmDisplay;         % Display de BPM (reemplaza bpmText)
+        peakThreshold = 0.5;    % Umbral más bajo para mejor detección
+        minPeakHeight = 1.2;    % Altura mínima ajustada
+        lastPeakTime = 0;
+        peakTimes = [];         % Array de tiempos de picos
+        bpmValue = 0;
+        sampleRate = 100;       % Tasa de muestreo estimada (Hz)
         
         % BPM detection properties
-        windowSize = 10;         % Tamaño de la ventana para detección
+        windowSize = 20;         % Tamaño de la ventana para detección
         lastValues = [];         % Buffer circular para valores
         isPeakDetected = false;  % Estado de detección de pico
         minPeakDistance = 0.2;   % Tiempo mínimo entre picos (segundos)
@@ -64,13 +65,31 @@ classdef STM32VoltageMonitor < handle
         axRespiration;    % Axes for respiration pattern
         axSweat;          % Axes for sweat level
         respirationPlot;  % Plot line for respiration
-        sweatBar;         % Bar plot for sweat level
+        sweatPie;         % Pie chart for sweat level
+        sweatText;        % Text display for sweat percentage
         
         % Additional data
         lastVolt2 = 0;    % Respiration voltage
         lastVolt3 = 0;    % Sweat voltage
         timePoints2 = []; % For respiration
         voltPoints2 = []; % For respiration
+        
+        % Peak detection properties
+        peakIndicator;     % Indicador visual de picos
+        lastPeakValue = 0; % Valor del último pico
+        
+        % Filtrado de señal de respiración
+        respFilterWindow = 30;    % Aumentado de 15 a 30 para más suavizado
+        respBuffer = [];          % Buffer para filtrado
+        smoothingFactor = 0.95;   % Aumentado de 0.8 a 0.95 para más suavizado
+        lastSmoothedValue = 0;    % Último valor suavizado
+        
+        % Propiedades para zoom dinámico
+        minVolt1 = 3.3;      % Mínimo valor ECG
+        maxVolt1 = 0;        % Máximo valor ECG
+        minVolt2 = 3.3;      % Mínimo valor respiración
+        maxVolt2 = 0;        % Máximo valor respiración
+        dynamicMargin = 0.1; % Margen para el zoom (10%)
     end
     
     methods
@@ -107,56 +126,63 @@ classdef STM32VoltageMonitor < handle
             
             % ECG Plot (top)
             obj.ax = axes('Parent', obj.fig, ...
-                'Position', [0.15 0.57 0.75 0.35], ...  % Adjusted position
-                'Color', [0.12 0.12 0.12], ...          % Slightly darker than background
-                'XColor', [0.7 0.7 0.7], ...            % Softer grid color
+                'Position', [0.15 0.57 0.75 0.35], ...
+                'Color', [0.12 0.12 0.12], ...
+                'XColor', [0.7 0.7 0.7], ...
                 'YColor', [0.7 0.7 0.7], ...
-                'GridColor', [0.2 0.2 0.2], ...         % Subtle grid
-                'GridAlpha', 0.3);                      % Semi-transparent grid
+                'GridColor', [0.2 0.2 0.2], ...
+                'GridAlpha', 0.3, ...
+                'YTick', 0:0.5:3.3);  % Marcas cada 0.5V
             
             title(obj.ax, 'ECG', 'Color', [0.8 0.8 0.8], 'FontWeight', 'bold');
             xlabel(obj.ax, 'Tiempo (s)', 'Color', [0.7 0.7 0.7]);
             ylabel(obj.ax, 'Voltaje (V)', 'Color', [0.7 0.7 0.7]);
             grid(obj.ax, 'on');
             ylim(obj.ax, [0 3.3]);
-            
+
             % Respiration Plot (middle)
             obj.axRespiration = axes('Parent', obj.fig, ...
-                'Position', [0.15 0.12 0.75 0.35], ...  % Adjusted position
+                'Position', [0.15 0.12 0.75 0.35], ...
                 'Color', [0.12 0.12 0.12], ...
                 'XColor', [0.7 0.7 0.7], ...
                 'YColor', [0.7 0.7 0.7], ...
                 'GridColor', [0.2 0.2 0.2], ...
-                'GridAlpha', 0.3);
-            
+                'GridAlpha', 0.3, ...
+                'YTick', 1.3:0.02:1.6);  % Marcas más precisas y cercanas
+
             title(obj.axRespiration, 'Patrón de Respiración', 'Color', [0.8 0.8 0.8], 'FontWeight', 'bold');
             xlabel(obj.axRespiration, 'Tiempo (s)', 'Color', [0.7 0.7 0.7]);
             ylabel(obj.axRespiration, 'Voltaje (V)', 'Color', [0.7 0.7 0.7]);
             grid(obj.axRespiration, 'on');
-            ylim(obj.axRespiration, [0 3.3]);
-            
-            % Sweat Level Bar (right) - Ajustada posición y tamaño
-            obj.axSweat = axes('Parent', obj.fig, ...
-                'Position', [0.92 0.2 0.05 0.6], ...   % Aumentado ancho de 0.035 a 0.05
-                'Color', [0.12 0.12 0.12], ...
-                'XColor', 'none', ...
-                'YColor', [0.7 0.7 0.7], ...
-                'Box', 'on', ...
-                'GridColor', [0.3 0.3 0.3], ...
-                'GridAlpha', 0.3, ...
-                'TitleFontWeight', 'bold', ...           % Añadido peso de fuente para el título
-                'TitleFontSizeMultiplier', 1.2);        % Aumentar tamaño relativo del título
+            ylim(obj.axRespiration, [1.3 1.6]);  % Rango más estrecho para mayor zoom
 
-            title(obj.axSweat, 'SUDORACIÓN', ...
+            % Sweat Level Display (right) - Cambiando de barra a círculo
+            obj.axSweat = polaraxes('Parent', obj.fig, ...
+                'Position', [0.88 0.2 0.1 0.3], ...  % Aumentado tamaño
+                'Color', [0.12 0.12 0.12]);
+            
+            % Configurar el gráfico polar
+            hold(obj.axSweat, 'on');
+            obj.axSweat.ThetaGrid = 'off';
+            obj.axSweat.RGrid = 'off';
+            obj.axSweat.ThetaTickLabels = {};
+            obj.axSweat.RTickLabels = {};
+            
+            % Inicializar gráfico circular
+            obj.sweatPie = polarplot(obj.axSweat, [0 0], [0 1], '-r', 'LineWidth', 3);  % Línea más gruesa
+            
+            title(obj.axSweat, 'CONDUCTANCIA', ...
                 'Color', [1 1 1], ...
                 'FontWeight', 'bold', ...
-                'FontSize', 11, ...                      % Aumentado tamaño de fuente
-                'Units', 'normalized', ...               % Usar unidades normalizadas
-                'Position', [0.5, 1.1, 0]);             % Ajustar posición vertical del título
+                'FontSize', 11);
             
-            grid(obj.axSweat, 'on');
-            ylim(obj.axSweat, [0 100]);
-            ylabel(obj.axSweat, '%', 'Color', [0.7 0.7 0.7]);
+            % Texto para mostrar microsiemens
+            obj.sweatText = text(obj.axSweat, 0, 0, '0 µS', ...  % Cambiado a microsiemens
+                'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', 'middle', ...
+                'Color', [1 1 1], ...
+                'FontSize', 14, ...
+                'FontWeight', 'bold');
 
             % Initialize plots with modern style
             obj.linePlot = line(obj.ax, NaN, NaN, ...
@@ -166,10 +192,6 @@ classdef STM32VoltageMonitor < handle
             obj.respirationPlot = line(obj.axRespiration, NaN, NaN, ...
                 'Color', [0.3 1 0.5], ...               % Brighter green
                 'LineWidth', 1.5);
-            
-            obj.sweatBar = bar(obj.axSweat, 0, ...
-                'FaceColor', [1 0.3 0.3], ...           % Brighter red
-                'EdgeColor', 'none');                   % Remove edge for cleaner look
             
             % Panel para BPM con nuevo estilo
             bpmPanel = uipanel('Parent', obj.fig, ...
@@ -182,7 +204,7 @@ classdef STM32VoltageMonitor < handle
                 'FontWeight', 'bold');
             
             % Display de BPM con estilo moderno
-            obj.bpmText = uicontrol('Parent', bpmPanel, ...
+            obj.bpmDisplay = uicontrol('Parent', bpmPanel, ...  % Cambiado de bpmText a bpmDisplay
                 'Style', 'text', ...
                 'String', '0 BPM', ...
                 'Position', [10 10 120 40], ...
@@ -190,6 +212,12 @@ classdef STM32VoltageMonitor < handle
                 'ForegroundColor', [0 1 0], ...
                 'FontSize', 20, ...
                 'FontWeight', 'bold');
+            
+            % Después de crear el panel BPM, añadir el indicador de picos
+            obj.peakIndicator = uipanel('Parent', bpmPanel, ...
+                'Position', [100 35 15 15], ...  % Ajusta la posición según necesites
+                'BackgroundColor', [0.2 0.2 0.2], ...
+                'BorderType', 'none');
             
             % Actualizar estilo del texto de advertencia
             obj.warningText = uicontrol('Style', 'text', ...
@@ -223,111 +251,139 @@ classdef STM32VoltageMonitor < handle
                 errordlg(['Error enviando comando: ' e.message], 'Error');
             end
         end
-        
+
         function updatePlot(obj)
-            % Leer datos disponibles
-            while obj.serialObj.NumBytesAvailable > 0
+            if obj.serialObj.NumBytesAvailable > 0
                 line = readline(obj.serialObj);
                 obj.parseData(line);
-            end
-            
-            if obj.lastVolt ~= 0
-                obj.sampleCount = obj.sampleCount + 1;
-                currentTime = now * 24 * 3600; % Tiempo actual en segundos
                 
-                % Actualizar buffer circular
-                obj.lastValues(end+1) = obj.lastVolt;
-                if length(obj.lastValues) > obj.windowSize
-                    obj.lastValues = obj.lastValues(end-obj.windowSize+1:end);
-                end
-                
-                % Detección de picos usando ventana deslizante
-                if length(obj.lastValues) >= 3
-                    middleIndex = ceil(length(obj.lastValues)/2);
-                    middleValue = obj.lastValues(middleIndex);
+                if obj.lastVolt ~= 0
+                    obj.sampleCount = obj.sampleCount + 1;
+                    currentTime = obj.sampleCount / obj.sampleRate; % Tiempo en segundos
                     
-                    % Verificar si es un pico local
-                    isPeak = middleValue > mean(obj.lastValues) && ...
-                            all(middleValue >= obj.lastValues(1:middleIndex-1)) && ...
-                            all(middleValue >= obj.lastValues(middleIndex+1:end));
-                    
-                    if isPeak && ~obj.isPeakDetected && ...
-                       (currentTime - obj.lastPeakTime) > obj.minPeakDistance
-                        % Pico detectado
-                        obj.peakTimes(end+1) = currentTime;
-                        obj.lastPeakTime = currentTime;
-                        obj.isPeakDetected = true;
-                        
-                        % Mantener solo los últimos 10 picos
-                        if length(obj.peakTimes) > 10
-                            obj.peakTimes = obj.peakTimes(end-9:end);
-                        end
-                        
-                        % Calcular BPM basado en intervalos entre picos
-                        if length(obj.peakTimes) >= 2
-                            intervals = diff(obj.peakTimes);
-                            avgInterval = mean(intervals);
-                            obj.bpmValue = round(60 / avgInterval);
-                            
-                            % Actualizar display de BPM
-                            set(obj.bpmText, 'String', sprintf('%d BPM', obj.bpmValue));
-                            
-                            % Actualizar color según rango de BPM
-                            if obj.bpmValue < 60
-                                set(obj.bpmText, 'ForegroundColor', [1 1 0]); % Amarillo
-                            elseif obj.bpmValue > 100
-                                set(obj.bpmText, 'ForegroundColor', [1 0 0]); % Rojo
-                            else
-                                set(obj.bpmText, 'ForegroundColor', [0 1 0]); % Verde
-                            end
-                        end
-                    elseif ~isPeak
-                        obj.isPeakDetected = false;
+                    % Actualizar buffer circular para detección de picos
+                    obj.lastValues(end+1) = obj.lastVolt;
+                    if length(obj.lastValues) > obj.windowSize
+                        obj.lastValues = obj.lastValues(end-obj.windowSize+1:end);
                     end
+                    
+                    % Detección de picos mejorada (reemplazar la sección existente)
+                    if length(obj.lastValues) >= 3
+                        middleValue = obj.lastValues(ceil(end/2));
+                        meanValue = mean(obj.lastValues);
+                        
+                        % Detector de cruces por umbral relativo
+                        isAboveThreshold = middleValue > (meanValue * 1.2); % 20% por encima de la media
+                        
+                        % Detector de picos usando tiempo
+                        if isAboveThreshold && ~obj.isPeakDetected && ...
+                           (currentTime - obj.lastPeakTime) > 0.4  % Mínimo 400ms entre picos
+                            
+                            % Marcar pico
+                            obj.peakTimes(end+1) = currentTime;
+                            obj.lastPeakTime = currentTime;
+                            obj.isPeakDetected = true;
+                            obj.lastPeakValue = middleValue;
+                            
+                            % Efecto visual del indicador
+                            set(obj.peakIndicator, 'BackgroundColor', [1 0 0]);  % Rojo cuando detecta
+                            pause(0.05);  % Breve destello
+                            set(obj.peakIndicator, 'BackgroundColor', [0.2 0.2 0.2]);  % Volver a oscuro
+                            
+                            % Calcular BPM usando solo tiempos
+                            if length(obj.peakTimes) > 1
+                                % Usar los últimos 4 intervalos como máximo
+                                lastPeaks = obj.peakTimes(max(1, end-4):end);
+                                intervals = diff(lastPeaks);
+                                avgInterval = mean(intervals);
+                                
+                                % Convertir a BPM y ajustar el valor
+                                newBPM = round(60 / avgInterval) - 20;  % Restar 20 al valor calculado
+                                
+                                % Filtrar valores no fisiológicos
+                                if newBPM >= 40 && newBPM <= 180
+                                    obj.bpmValue = newBPM;
+                                    set(obj.bpmDisplay, 'String', sprintf('%d BPM', obj.bpmValue));
+                                    
+                                    % Actualizar color según rango ajustado
+                                    if obj.bpmValue < 60
+                                        set(obj.bpmDisplay, 'ForegroundColor', [1 1 0]);  % Amarillo - Bradicardia
+                                    elseif obj.bpmValue > 100
+                                        set(obj.bpmDisplay, 'ForegroundColor', [1 0 0]);  % Rojo - Taquicardia
+                                    else
+                                        set(obj.bpmDisplay, 'ForegroundColor', [0 1 0]);  % Verde - Normal
+                                    end
+                                end
+                            end
+                            
+                            % Mantener solo los últimos 10 tiempos de pico
+                            if length(obj.peakTimes) > 10
+                                obj.peakTimes = obj.peakTimes(end-9:end);
+                            end
+                        elseif ~isAboveThreshold
+                            obj.isPeakDetected = false;
+                        end
+                    end
+                    
+                    % Suavizado mejorado de la señal de respiración
+                    obj.respBuffer(end+1) = 3.3 - obj.lastVolt2;  % Invertir y escalar a rango positivo
+                    if length(obj.respBuffer) > obj.respFilterWindow
+                        obj.respBuffer = obj.respBuffer(end-obj.respFilterWindow+1:end);
+                    end
+                    
+                    if ~isempty(obj.respBuffer)
+                        % Aplicar filtro exponencial mejorado con media móvil ponderada
+                        currentMean = mean(obj.respBuffer);
+                        if isempty(obj.lastSmoothedValue)
+                            obj.lastSmoothedValue = currentMean;
+                        end
+                        
+                        smoothedValue = obj.smoothingFactor * obj.lastSmoothedValue + ...
+                                      (1 - obj.smoothingFactor) * currentMean;
+                        obj.lastSmoothedValue = smoothedValue;
+                        
+                        % Actualizar la gráfica con el valor suavizado
+                        obj.timePoints2(end+1) = obj.sampleCount;
+                        obj.voltPoints2(end+1) = smoothedValue;
+                        
+                        if length(obj.timePoints2) > obj.maxPoints
+                            obj.timePoints2 = obj.timePoints2(end-obj.maxPoints+1:end);
+                            obj.voltPoints2 = obj.voltPoints2(end-obj.maxPoints+1:end);
+                        end
+                        
+                        set(obj.respirationPlot, 'XData', obj.timePoints2, 'YData', obj.voltPoints2);
+                    end
+                    
+                    % Actualizar gráficas
+                    obj.timePoints(end+1) = obj.sampleCount;
+                    obj.voltPoints(end+1) = obj.lastVolt;
+                    
+                    % Buffer management
+                    if length(obj.timePoints) > obj.maxPoints + obj.scrollMargin
+                        obj.timePoints = obj.timePoints(end-obj.maxPoints-obj.scrollMargin+1:end);
+                        obj.voltPoints = obj.voltPoints(end-obj.maxPoints-obj.scrollMargin+1:end);
+                    end
+                    
+                    % Update plots
+                    set(obj.linePlot, 'XData', obj.timePoints, 'YData', obj.voltPoints);
+                    
+                    % Actualizar visualización de sudoración
+                    sweatPercentage = obj.lastVolt3 * 15.15;  % Convertir a porcentaje
+                    theta = linspace(0, 2*pi*sweatPercentage/50, 50);  % Mapear a 2π
+                    set(obj.sweatPie, 'ThetaData', theta, 'RData', ones(size(theta)));
+                    set(obj.sweatText, 'String', sprintf('%.1f µS', sweatPercentage));
+                    
+                    % Mostrar valores en terminal
+                    fprintf('ADC1=%.2fV, ADC2=%.2fV, ADC3=%.2fV | BPM=%d\n', ...
+                        obj.lastVolt, obj.lastVolt2, obj.lastVolt3, obj.bpmValue);
+                    
+                    if obj.sampleCount > obj.startScroll
+                        xlim(obj.ax, [max(1, obj.sampleCount - obj.maxPoints), obj.sampleCount]);
+                        xlim(obj.axRespiration, [max(1, obj.sampleCount - obj.maxPoints), obj.sampleCount]);
+                    end
+                    
+                    drawnow limitrate;  % Limitar tasa de actualización
                 end
-                
-                % Actualizar puntos de la gráfica con el voltaje real
-                obj.timePoints(end+1) = obj.sampleCount;
-                obj.voltPoints(end+1) = obj.lastVolt;
-                
-                % Update Respiration plot
-                obj.timePoints2(end+1) = obj.sampleCount;
-                obj.voltPoints2(end+1) = obj.lastVolt2;
-                
-                % Mantener el tamaño máximo del buffer
-                if length(obj.timePoints) > obj.maxPoints + obj.scrollMargin
-                    obj.timePoints = obj.timePoints(end-obj.maxPoints-obj.scrollMargin+1:end);
-                    obj.voltPoints = obj.voltPoints(end-obj.maxPoints-obj.scrollMargin+1:end);
-                end
-                
-                if length(obj.timePoints2) > obj.maxPoints + obj.scrollMargin
-                    obj.timePoints2 = obj.timePoints2(end-obj.maxPoints-obj.scrollMargin+1:end);
-                    obj.voltPoints2 = obj.voltPoints2(end-obj.maxPoints-obj.scrollMargin+1:end);
-                end
-                
-                % Actualizar línea de la gráfica
-                set(obj.linePlot, 'XData', obj.timePoints, 'YData', obj.voltPoints);
-                set(obj.respirationPlot, 'XData', obj.timePoints2, 'YData', obj.voltPoints2);
-                
-                % Update Sweat Level bar
-                sweatPercentage = (obj.lastVolt3 / 3.3) * 100;  % Convert to percentage
-                set(obj.sweatBar, 'YData', sweatPercentage);
-                
-                % Actualizar leyenda con el voltaje actual
-                legend(obj.ax, sprintf('Voltaje Actual: %.2fV', obj.lastVolt), ...
-                    'TextColor', [0.8 0.8 0.8], ...
-                    'Color', [0.2 0.2 0.2]);
-                
-                % Ajustar límites si es necesario
-                if obj.sampleCount > obj.startScroll
-                    xlim(obj.ax, [max(1, obj.sampleCount - obj.maxPoints), obj.sampleCount]);
-                    xlim(obj.axRespiration, [max(1, obj.sampleCount - obj.maxPoints), obj.sampleCount]);
-                else
-                    xlim(obj.ax, [1, obj.maxPoints]);
-                end
-                
-                % Forzar actualización de la interfaz
-                drawnow;
             end
         end
         
