@@ -35,13 +35,13 @@ volatile uint16_t tabla2_sierra[muestras];
 // Parámetros DAC1
 volatile float amplitud1 = 1.5;
 volatile float offset1 = 1.5;
-volatile float frec1 = 100.0;
+volatile float frec1 = 20000000.0;
 volatile uint8_t onda1 = 0;
 
 // Parámetros DAC2
 volatile float amplitud2 = 1.0;
 volatile float offset2 = 1.0;
-volatile float frec2 = 50.0;
+volatile float frec2 = 1000.0;
 volatile uint8_t onda2 = 1;
 
 // Variables para control de tiempo con precisión de 64 bits N
@@ -421,3 +421,4 @@ int main(void) {
         }
     }
 }
+		}
