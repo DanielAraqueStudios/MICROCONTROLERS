@@ -19,6 +19,7 @@ void procesar_coman(char *cmd);
 void USART2_escribirChar(char c);
 void USART2_escribirString(char *str);
 void actualizar_incrementos(void);
+void ConfigurarTimersFrecuencia(void);
 
 // Tablas para ambas salidas
 volatile uint16_t tabla1_seno[muestras];
@@ -55,6 +56,8 @@ volatile uint32_t baseTimer = 10; // 10 microsegundos para mayor precisión I
 // Factor de escala para mayor precisión en los cálculos A
 #define presicion_fase 0x100000000LL  // 2^32 para mayor precisión G
 
+// Variable para almacenar la frecuencia medida
+volatile float frecuencia = 0.0f;  
 
 void actualizar_incrementos(void) {
     // Fórmula mejorada: (freq * SAMPLES * baseTimer * PHASE_PRECISION) / 1000000
@@ -301,6 +304,46 @@ void USART2_limpiarBuffer(void) {
     }
 }
 
+// Configuración PB5 como entrada de frecuencia
+void ConfigurarTimersFrecuencia(void) {
+    RCC->AHB1ENR |= (1<<1);  // GPIOB clock
+    GPIOB->MODER &= ~(3<<10);  // Clear PB5
+    GPIOB->MODER |= (2<<10);   // Alternate Function
+    GPIOB->AFR[0] &= ~(0xF<<20);  // Clear AF
+    GPIOB->AFR[0] |= (2<<20);     // AF2 (TIM3_CH2)
+
+    // Timer3 como contador de pulsos externos
+    RCC->APB1ENR |= (1<<1);    // TIM3 clock
+    TIM3->PSC = 0;             // Sin preescaler
+    TIM3->ARR = 0xFFFF;        // Máximo conteo
+    TIM3->CCMR1 |= (1<<8);     // CC2 como entrada
+    TIM3->CCER |= (1<<4);      // Captura en CH2 habilitada
+    TIM3->SMCR |= (0b111<<0);  // External Clock Mode 1
+    TIM3->SMCR |= (0b110<<4);  // TI2FP2 como entrada
+    TIM3->CR1 |= (1<<0);       // Enable counter
+
+    // Timer2 para base de tiempo 1 segundo
+    RCC->APB1ENR |= (1<<0);    // TIM2 clock
+    TIM2->PSC = 15999;         // 16MHz/16000 = 1kHz
+    TIM2->ARR = 999;           // 1kHz/1000 = 1Hz (1 segundo)
+    TIM2->DIER |= (1<<0);      // Interrupt enable
+    TIM2->CR1 |= (1<<0);       // Enable counter
+    NVIC_EnableIRQ(TIM2_IRQn);
+}
+
+extern "C" {
+    void TIM2_IRQHandler(void) {
+        TIM2->SR &= ~(1<<0);  // Limpiar flag
+        frecuencia = (float)TIM3->CNT;  // Leer conteo
+        TIM3->CNT = 0;  // Resetear contador
+        
+        // Debug: enviar frecuencia por UART
+        char freqStr[32];
+        sprintf(freqStr, "Measured Freq: %.1f Hz\r\n", frecuencia);
+        USART2_escribirString(freqStr);
+    }
+}
+
 int main(void) {
     configs();
     SysTick_Inicio();
@@ -325,6 +368,9 @@ int main(void) {
     sprintf(freqInfo, "Initial freqs: DAC1=%.5f Hz, DAC2=%.5f Hz\r\n", realFreq1, realFreq2);
     USART2_escribirString(freqInfo);
 
+    // Configurar timers de frecuencia
+    ConfigurarTimersFrecuencia();
+    
     while (1) {
     // Actualizar fases y DACs (código existente)
     fase1 += fase_incre_1;
@@ -375,6 +421,3 @@ int main(void) {
         }
     }
 }
-}
-
-// Nueva función para actualizar los incrementos de fase
