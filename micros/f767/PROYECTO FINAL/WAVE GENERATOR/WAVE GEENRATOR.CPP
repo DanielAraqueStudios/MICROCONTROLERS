@@ -35,13 +35,13 @@ volatile uint16_t tabla2_sierra[muestras];
 // Parámetros DAC1
 volatile float amplitud1 = 1.5;
 volatile float offset1 = 1.5;
-volatile float frec1 = 20000000.0;
+volatile float frec1 = 1000.0;  // Frecuencia inicial modificada
 volatile uint8_t onda1 = 0;
 
 // Parámetros DAC2
 volatile float amplitud2 = 1.0;
-volatile float offset2 = 1.0;
-volatile float frec2 = 1000.0;
+volatile float offset2 = 1.65;  // Corregido a un valor más razonable
+volatile float frec2 = 1000.0;  // Frecuencia inicial modificada
 volatile uint8_t onda2 = 1;
 
 // Variables para control de tiempo con precisión de 64 bits N
@@ -53,6 +53,7 @@ volatile uint64_t fase_increm_2;
 // Usa una base de tiempo más precisa (en microsegundos) T
 volatile uint32_t baseTimer = 10; // 10 microsegundos para mayor precisión I
 
+
 // Factor de escala para mayor precisión en los cálculos A
 #define presicion_fase 0x100000000LL  // 2^32 para mayor precisión G
 
@@ -60,14 +61,20 @@ volatile uint32_t baseTimer = 10; // 10 microsegundos para mayor precisión I
 volatile float frecuencia = 0.0f;  
 
 void actualizar_incrementos(void) {
-    // Fórmula mejorada: (freq * SAMPLES * baseTimer * PHASE_PRECISION) / 1000000
-    // Donde PHASE_PRECISION es 2^32 para mayor precisión
-    fase_incre_1 = (uint64_t)((frec1 * muestras* baseTimer * (double)presicion_fase) / 1000000.0);
-    fase_increm_2 = (uint64_t)((frec2 * muestras * baseTimer * (double)presicion_fase) / 1000000.0);
+    // Factor de corrección de frecuencia
+    const double FREQ_CORRECTION = 2.0;
     
-    // Recalcular frecuencias reales con mayor precisión
-    float realFreq1 = ((float)fase_incre_1 * 1000000.0f) / (presicion_fase * muestras* baseTimer);
-    float realFreq2 = ((float)fase_increm_2 * 1000000.0f) / (presicion_fase *muestras * baseTimer);
+    // Aplicar factor de corrección a las frecuencias
+    double freq1_corrected = frec1 * FREQ_CORRECTION;
+    double freq2_corrected = frec2 * FREQ_CORRECTION;
+    
+    // Calcular incrementos con frecuencias corregidas
+    fase_incre_1 = (uint64_t)((freq1_corrected * muestras * baseTimer * (double)presicion_fase) / 1000000.0);
+    fase_increm_2 = (uint64_t)((freq2_corrected * muestras * baseTimer * (double)presicion_fase) / 1000000.0);
+    
+    // Recalcular frecuencias reales
+    float realFreq1 = ((float)fase_incre_1 * 1000000.0f) / (presicion_fase * muestras * baseTimer);
+    float realFreq2 = ((float)fase_increm_2 * 1000000.0f) / (presicion_fase * muestras * baseTimer);
     
     // Ajuste fino para minimizar el error de redondeo
     // Solo si hay una diferencia significativa (>0.01%) V
@@ -214,71 +221,59 @@ void procesar_coman(char *cmd) {
     // Extraer el tipo de comando (segundo carácter)
     char type = cmd[1];
     
-    // Extraer el valor (a partir del tercer carácter)
-    char* value_str = &cmd[2];
-    char* endptr;
-    float value = strtof(value_str, &endptr);
-    
-    // Verificar conversión numérica
-    if (endptr == value_str) {
-        USART2_escribirString("Error: Valor no numérico\r\n");
-        return;
-    }
+    // Extraer el valor numérico
+    float value = atof(&cmd[2]);  // Cambiado a atof para manejar decimales
     
     char response[80];
     uint8_t need_update = 0;
     
     // Procesar comandos según el tipo
     switch (type) {
-        case 'A':  // Amplitud
-            if (dac == 1) {
-                amplitud1 = value;
-                sprintf(response, "DAC1 Amplitude set to %.2f V\r\n", amplitud1);
-            } else {
-                amplitud2 = value;
-                sprintf(response, "DAC2 Amplitude set to %.2f V\r\n", amplitud2);
-            }
-            need_update = 1;
-            break;
-            
-        case 'F':  // Frecuencia
-            if (dac == 1) {
-                frec1 = value;
-                actualizar_incrementos();
-                float realFreq = ((float)fase_incre_1 * 1000000.0f) / (presicion_fase * muestras * baseTimer);
-                sprintf(response, "DAC1 Frequency set to %.3f Hz (Real: %.5f Hz)\r\n", frec1, realFreq);
-            } else {
-                frec2 = value;
-                actualizar_incrementos();
-                float realFreq = ((float)fase_increm_2 * 1000000.0f) / (presicion_fase * muestras * baseTimer);
-                sprintf(response, "DAC2 Frequency set to %.3f Hz (Real: %.5f Hz)\r\n", frec2, realFreq);
-            }
-            need_update = 1;
-            break;
-            
-        case 'O':  // Offset
-            if (dac == 1) {
-                offset1 = value;
-                sprintf(response, "DAC1 Offset set to %.2f V\r\n", offset1);
-            } else {
-                offset2 = value;
-                sprintf(response, "DAC2 Offset set to %.2f V\r\n", offset2);
-            }
-            need_update = 1;
-            break;
-            
-        case 'W':  // Forma de onda (Wave)
+        case 'W':  // Forma de onda (Wave) - entero 0-3
             if (value < 0 || value > 3) {
                 USART2_escribirString("Error: Waveform debe ser 0-3\r\n");
                 return;
             }
-            
             if (dac == 1) {
                 onda1 = (uint8_t)value;
-                sprintf(response, "DAC1 Waveform set to %d\r\n", onda1);
             } else {
                 onda2 = (uint8_t)value;
-                sprintf(response, "DAC2 Waveform set to %d\r\n", onda2);
+            }
+            need_update = 1;
+            break;
+            
+        case 'F':  // Frecuencia - valor flotante
+            if (dac == 1) {
+                frec1 = value;
+            } else {
+                frec2 = value;
+            }
+            actualizar_incrementos();
+            need_update = 1;
+            break;
+            
+        case 'A':  // Amplitud - valor flotante 0-3.3V
+            if (value < 0 || value > 3.3) {
+                USART2_escribirString("Error: Amplitud debe ser 0-3.3V\r\n");
+                return;
+            }
+            if (dac == 1) {
+                amplitud1 = value;
+            } else {
+                amplitud2 = value;
+            }
+            need_update = 1;
+            break;
+            
+        case 'O':  // Offset - valor flotante 0-3.3V
+            if (value < 0 || value > 3.3) {
+                USART2_escribirString("Error: Offset debe ser 0-3.3V\r\n");
+                return;
+            }
+            if (dac == 1) {
+                offset1 = value;
+            } else {
+                offset2 = value;
             }
             need_update = 1;
             break;
@@ -288,14 +283,14 @@ void procesar_coman(char *cmd) {
             USART2_escribirString(response);
             return;
     }
-    
-    // Enviar respuesta
-    USART2_escribirString(response);
-    
-    // Regenerar tablas si es necesario
+
+    // Regenerar tablas si hubo cambios
     if (need_update) {
         generar_ondas();
     }
+
+    // Enviar confirmación
+    USART2_escribirString("OK\r\n");
 }
 
 void USART2_limpiarBuffer(void) {
@@ -421,4 +416,3 @@ int main(void) {
         }
     }
 }
-		}
