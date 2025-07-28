@@ -1,0 +1,1798 @@
+#include <stm32f767xx.h>
+#include <string.h>
+#include <stdio.h>
+#include <math.h>
+#include <stdbool.h>
+#include <ctype.h>  // For character functions
+
+// Configuration Constants
+#define MPU6050_ADDR     0x68
+#define ALPHA            0.94f   // Complementary filter coefficient
+#define DT               0.01f   // 10 ms sampling period
+#define M_PI             3.14159265358979323846
+#define TICK_FACTOR      1.65f   // Conversion factor from centimeters to encoder ticks (1cm ≈ 14 ticks)
+#define MOTOR_SPEED      70      // Default motor speed (PWM duty cycle)
+#define TURN_THRESHOLD   0.5f    // Deadzone for considering a turn complete (degrees)
+#define UART_BUFFER_SIZE 32      // Size of UART receive buffer
+
+// Ultrasonic sensor and Servo constants
+#define ULTRASONIC_TRIG_PIN  10    // PC10 for Trigger
+#define ULTRASONIC_ECHO_PIN  11    // PC11 for Echo
+#define SERVO_PIN            2     // PA2 for Servo PWM control
+#define OBSTACLE_THRESHOLD   25    // Distance threshold in cm for obstacle detection
+#define ULTRASONIC_FACTOR    0.066 // Conversion factor for HC-SR04 (speed of sound/2)
+#define SERVO_MIN_PULSE      500   // Minimum pulse width in microseconds (0 degrees)
+#define SERVO_MAX_PULSE      2500  // Maximum pulse width in microseconds (180 degrees)
+
+// MPU6050 Registers
+#define MPU_PWR_MGMT_1   0x6B
+#define MPU_CONFIG       0x1A
+#define MPU_GYRO_CONFIG  0x1B
+#define MPU_ACCEL_CONFIG 0x1C
+#define MPU_DATA_REG     0x3B
+
+// Global Variables
+uint8_t mpu_cmd[1];                      // Command buffer for MPU6050
+uint8_t mpu_data_buffer[14];             // Raw data buffer for MPU6050
+
+// Motion tracking variables
+volatile float yaw = 0.0f;               // Current yaw angle
+volatile float target_yaw = 0.0f;        // Target yaw angle for turns
+volatile int16_t raw_gyrox, raw_gyroy, raw_gyroz;
+volatile int16_t raw_accelx, raw_accely, raw_accelz;
+volatile float gyrox, gyroy, gyroz;      // Processed gyro values in degrees/s
+volatile float accelx, accely, accelz;   // Processed accel values in g
+volatile float gyro_offset_x = 0.0f;     // Gyroscope calibration offset X
+volatile float gyro_offset_y = 0.0f;     // Gyroscope calibration offset Y
+volatile float gyro_offset_z = 0.0f;     // Gyroscope calibration offset Z
+volatile bool gyro_calibrated = false;   // Flag to indicate if gyro is calibrated
+
+// Motor control variables
+volatile int cont_derecho = 0;           // Right wheel encoder counter
+volatile int cont_izquierdo = 0;         // Left wheel encoder counter
+volatile int ref_derecho = 0;            // Right wheel reference position
+volatile int ref_izquierdo = 0;          // Left wheel reference position
+volatile bool referencias_configuradas = false;  // Flag for reference initialization
+int velocidad = MOTOR_SPEED;             // PWM duty cycle for motors
+
+// UART Communication
+char uart_buffer[UART_BUFFER_SIZE];      // Buffer for UART received data
+volatile uint8_t uart_index = 0;         // Current index in uart_buffer
+volatile bool uart_complete = false;     // Flag for complete message received
+volatile int target_x = 0, target_y = 0; // Target coordinates from UART
+
+// Obstacle detection variables
+volatile float current_distance = 0.0f;      // Current distance from ultrasonic sensor in cm
+volatile bool obstacle_detected = false;     // Flag for obstacle detection
+volatile int servo_position = 90;            // Current servo position in degrees (90 = center)
+volatile int servo_scan_direction = 1;       // Direction of servo scanning (1 = increasing, -1 = decreasing)
+volatile int obstacle_direction = 90;        // Direction of detected obstacle in degrees
+
+// Debug variables
+uint8_t debug_flag = 0;
+char debug_text[50];
+int debug_counter = 0;
+
+// Movement state machine
+typedef enum {
+    ESTADO_DETENIDO,         // Robot stopped
+    ESTADO_AVANZANDO_Y,      // Moving along Y axis
+    ESTADO_GIRANDO,          // Turning to face X direction
+    ESTADO_AVANZANDO_X,      // Moving along X axis
+    ESTADO_TERMINADO,        // Mission complete
+    ESTADO_OBSTACULO         // Obstacle detected - robot stopped
+} RobotState;
+
+volatile RobotState estado_actual = ESTADO_DETENIDO;
+
+// Function prototypes
+void ConfigI2C(void);
+void WriteI2C1(uint8_t Direccion, uint8_t Registro, uint8_t *Dato, uint8_t Byte);
+void ReadI2C(uint8_t Direccion, uint8_t Registro, uint8_t *Dato, uint8_t Byte);
+void ConfigMPU6050(void);
+void ReadMPU6050Data(void);
+void CalibrateGyroscope(void);
+void InitializeMotorControl(void);
+void InitializeEncoders(void);
+void ConfigureSysTick(void);
+void ConfigureUART(void);
+void SysTick_Wait(uint32_t n);
+void SysTick_ms(uint32_t x);
+void ConfigureTimer3(void);
+void ConfigurePWM(void);
+void SetReferencePositions(void);
+void MotorControl(int left_speed, int right_speed);
+void ProcessUARTMessage(void);
+bool MoveDistance(int ticks);
+bool Turn(float angle);
+void SendDebugMessage(const char* message);
+void UpdateLCD(int x, int y, float angle);
+
+// Ultrasonic sensor and servo functions
+void InitializeUltrasonicSensor(void);
+void InitializeServo(void);
+float ReadUltrasonicDistance(void);
+void SetServoPosition(int angle);
+void ScanForObstacles(void);
+void UpdateLCDObstacle(float distance, int direction);
+void HandleObstacleDetection(void);
+
+// Prototipos de funciones para el LCD
+void LCD_Command(unsigned char command);
+void LCD_Data(unsigned char data);
+void LCD_Init(void);
+void LCD_Print(char *str);
+void LCD_SetCursor(unsigned char row, unsigned char col);
+void LCD_Clear(void);
+void inicializar_GPIO(void);
+
+/******************** I2C FUNCTIONS ********************/
+
+void ConfigI2C(void) {
+    // Enable GPIOB clock
+    RCC->AHB1ENR |= (1 << 1);
+    
+    // Configure PB8 (SCL) and PB9 (SDA) for I2C1
+    GPIOB->MODER |= (1 << 19) | (1 << 17);   // Alternate function mode
+    GPIOB->OTYPER |= (1 << 8) | (1 << 9);    // Open drain
+    GPIOB->OSPEEDR |= (3 << 16) | (3 << 18); // Very high speed
+    GPIOB->PUPDR |= (1 << 18) | (1 << 16);   // Pull-up
+    GPIOB->AFR[1] |= (4 << 0) | (4 << 4);    // AF4 (I2C1)
+    
+    // Enable I2C1 clock and set clock source
+    RCC->APB1ENR |= (1 << 21);
+    RCC->DCKCFGR2 |= (2 << 16);  // HSI as clock source for I2C1
+    
+    // Configure I2C timing
+    I2C1->CR1 &= ~(1 << 0);      // Disable I2C1 before configuring
+    I2C1->TIMINGR = 0x30420F13;  // Timing value for 100kHz from 16MHz
+    I2C1->CR1 |= (1 << 0);       // Enable I2C1
+}
+
+void WriteI2C1(uint8_t Direccion, uint8_t Registro, uint8_t *Dato, uint8_t Byte) {
+    uint8_t n;
+    
+    // Configure slave address
+    I2C1->CR2 &= ~(0x3FF << 0);
+    I2C1->CR2 = (Direccion << 1);
+    
+    // Configure transfer parameters
+    I2C1->CR2 &= ~(1 << 10);                // Write mode
+    I2C1->CR2 &= ~(0xFF << 16);             // Clear NBYTES
+    I2C1->CR2 |= ((Byte + 1) << 16);        // Set NBYTES (data + register)
+    I2C1->CR2 |= (1 << 25);                 // AUTOEND mode
+    
+    // Start transfer
+    I2C1->CR2 |= (1 << 13);
+    while (!(I2C1->ISR & (1 << 1))) {}      // Wait for TXIS
+    I2C1->TXDR = Registro;                  // Send register address
+    
+    // Send data bytes
+    n = Byte;
+    while (n > 0) {
+        while (!(I2C1->ISR & (1 << 1))) {}  // Wait for TXIS
+        I2C1->TXDR = *Dato;
+        Dato++;
+        n--;
+    }
+    
+    // Wait for transfer completion
+    while (!((I2C1->ISR) & (1 << 5))) {}    // Wait for STOPF
+}
+
+void ReadI2C(uint8_t Direccion, uint8_t Registro, uint8_t *Dato, uint8_t Byte) {
+    uint8_t n;
+    uint32_t timeout = 0;
+    
+    // Configure slave address
+    I2C1->CR2 &= ~(0x3FF << 0);
+    I2C1->CR2 = (Direccion << 1);
+    
+    // Write register address
+    I2C1->CR2 &= ~(1 << 10);                // Write mode
+    I2C1->CR2 &= ~(0xFF << 16);             // Clear NBYTES
+    I2C1->CR2 |= (1 << 16);                 // Set NBYTES to 1
+    I2C1->CR2 &= ~(1 << 25);                // No AUTOEND
+    
+    // Start transfer
+    I2C1->CR2 |= (1 << 13);
+    
+    // Wait for TXIS with timeout
+    timeout = 10000;
+    while (!(I2C1->ISR & (1 << 1)) && timeout > 0) {
+        timeout--;
+    }
+    if (timeout > 0) {
+        I2C1->TXDR = Registro;                  // Send register address
+    } else {
+        // Handle timeout - reset I2C
+        I2C1->CR1 &= ~(1 << 0);      // Disable I2C1
+        SysTick_ms(1);
+        I2C1->CR1 |= (1 << 0);       // Enable I2C1
+        return;
+    }
+    
+    // Wait for TC with timeout
+    timeout = 10000;
+    while (!((I2C1->ISR) & (1 << 6)) && timeout > 0) {
+        timeout--;
+    }
+    if (timeout == 0) {
+        // Handle timeout - reset I2C
+        I2C1->CR1 &= ~(1 << 0);      // Disable I2C1
+        SysTick_ms(1);
+        I2C1->CR1 |= (1 << 0);       // Enable I2C1
+        return;
+    }
+    
+    // Configure read operation
+    I2C1->CR2 |= (1 << 10);                 // Read mode
+    I2C1->CR2 &= ~(0xFF << 16);             // Clear NBYTES
+    I2C1->CR2 |= (Byte << 16);              // Set NBYTES
+    I2C1->CR2 &= ~(1 << 25);                // No AUTOEND
+    I2C1->CR2 |= (1 << 13);                 // Restart transfer
+    
+    // Read data bytes
+    n = Byte;
+    while (n > 0) {
+        // Wait for RXNE with timeout
+        timeout = 10000;
+        while (!(I2C1->ISR & (1 << 2)) && timeout > 0) {
+            timeout--;
+        }
+        
+        if (timeout > 0) {
+            *Dato = I2C1->RXDR;                 // Read data
+            Dato++;
+            n--;
+        } else {
+            // Handle timeout - reset I2C
+            I2C1->CR1 &= ~(1 << 0);      // Disable I2C1
+            SysTick_ms(1);
+            I2C1->CR1 |= (1 << 0);       // Enable I2C1
+            return;
+        }
+    }
+    
+    // Stop transfer
+    I2C1->CR2 |= (1 << 14);                 // STOP
+    
+    // Wait for STOPF with timeout
+    timeout = 10000;
+    while (!(I2C1->ISR & (1 << 5)) && timeout > 0) {
+        timeout--;
+    }
+    
+    if (timeout > 0) {
+        I2C1->ICR |= (1 << 5);                  // Clear STOPF
+    } else {
+        // Handle timeout - reset I2C
+        I2C1->CR1 &= ~(1 << 0);      // Disable I2C1
+        SysTick_ms(1);
+        I2C1->CR1 |= (1 << 0);       // Enable I2C1
+    }
+}
+
+void ConfigMPU6050(void) {
+    // Wake up the MPU6050 from sleep mode
+    mpu_cmd[0] = 0x00;
+    WriteI2C1(MPU6050_ADDR, MPU_PWR_MGMT_1, mpu_cmd, 1);
+    SysTick_ms(10);
+    
+    // Set gyro range to ±250°/s and accel range to ±2g
+    mpu_cmd[0] = 0x00;  // 250 deg/s
+    WriteI2C1(MPU6050_ADDR, MPU_GYRO_CONFIG, mpu_cmd, 1);
+    mpu_cmd[0] = 0x00;  // 2g
+    WriteI2C1(MPU6050_ADDR, MPU_ACCEL_CONFIG, mpu_cmd, 1);
+    SysTick_ms(10);
+    
+    // Set DLPF (Digital Low Pass Filter)
+    mpu_cmd[0] = 0x03;  // ~44Hz cutoff frequency
+    WriteI2C1(MPU6050_ADDR, MPU_CONFIG, mpu_cmd, 1);
+    SysTick_ms(10);
+}
+
+void ReadMPU6050Data(void) {
+    // Read 14 bytes of data from MPU6050 with timeout protection
+    uint32_t timeout = 100000;  // Set a timeout value
+    uint32_t start_time = 0;
+    
+    // Use a timeout to prevent getting stuck in I2C operations
+    start_time = SysTick->VAL;
+    ReadI2C(MPU6050_ADDR, MPU_DATA_REG, mpu_data_buffer, 14);
+    
+    // Extract raw data
+    raw_accelx = (mpu_data_buffer[0] << 8) | mpu_data_buffer[1];
+    raw_accely = (mpu_data_buffer[2] << 8) | mpu_data_buffer[3];
+    raw_accelz = (mpu_data_buffer[4] << 8) | mpu_data_buffer[5];
+    
+    // Skip temperature (bytes 6-7)
+    
+    raw_gyrox = (mpu_data_buffer[8] << 8) | mpu_data_buffer[9];
+    raw_gyroy = (mpu_data_buffer[10] << 8) | mpu_data_buffer[11];
+    raw_gyroz = (mpu_data_buffer[12] << 8) | mpu_data_buffer[13];
+    
+    // Convert to physical units
+    gyrox = raw_gyrox * (250.0f / 32768.0f);
+    gyroy = raw_gyroy * (250.0f / 32768.0f);
+    gyroz = raw_gyroz * (250.0f / 32768.0f);
+    
+    // Apply calibration offsets if calibrated
+    if (gyro_calibrated) {
+        gyrox -= gyro_offset_x;
+        gyroy -= gyro_offset_y;
+        gyroz -= gyro_offset_z;
+    }
+    
+    accelx = raw_accelx * (2.0f / 32768.0f);
+    accely = raw_accely * (2.0f / 32768.0f);
+    accelz = raw_accelz * (2.0f / 32768.0f);
+    
+    // Update yaw angle with drift limitation
+    float yaw_change = gyroz * DT;
+    
+    // Limit drift by ignoring very small changes
+    if (fabs(yaw_change) < 0.01f) {
+        yaw_change = 0.0f;
+    }
+    
+    // Apply change to yaw
+    yaw += yaw_change;
+    
+    // Normalize yaw to 0-360 range
+    while (yaw >= 360.0f) yaw -= 360.0f;
+    while (yaw < 0.0f) yaw += 360.0f;
+}
+
+void CalibrateGyroscope(void) {
+    // Increase number of samples for better calibration
+    const int num_samples = 100;
+    float sum_x = 0.0f, sum_y = 0.0f, sum_z = 0.0f;
+    
+    // Display calibration message on LCD
+    LCD_SetCursor(0, 0);
+    LCD_Print("Calibrating...");
+    LCD_SetCursor(1, 0);
+    LCD_Print("Keep robot still");
+    
+    // Send debug message and ensure it's sent
+    SendDebugMessage("Starting gyroscope calibration...");
+    
+    // Brief delay for sensor to settle
+    SysTick_ms(100);
+    
+    // Reset yaw to 0 before calibration
+    yaw = 0.0f;
+    
+    // Take samples to average the offset with timeout protection
+    int timeout_counter = 0;
+    for (int i = 0; i < num_samples && timeout_counter < 1000; i++) {
+        // Read sensor data (raw, without applying existing offsets)
+        ReadI2C(MPU6050_ADDR, MPU_DATA_REG, mpu_data_buffer, 14);
+        
+        // Extract gyro data
+        raw_gyrox = (mpu_data_buffer[8] << 8) | mpu_data_buffer[9];
+        raw_gyroy = (mpu_data_buffer[10] << 8) | mpu_data_buffer[11];
+        raw_gyroz = (mpu_data_buffer[12] << 8) | mpu_data_buffer[13];
+        
+        // Convert to degrees per second
+        float gx = raw_gyrox * (250.0f / 32768.0f);
+        float gy = raw_gyroy * (250.0f / 32768.0f);
+        float gz = raw_gyroz * (250.0f / 32768.0f);
+        
+        // Update LCD to show progress
+        if (i % 10 == 0) {
+            char progress[16];
+            sprintf(progress, "Progress: %d%%  ", (i * 100) / num_samples);
+            LCD_SetCursor(1, 0);
+            LCD_Print(progress);
+        }
+        
+        // Filter out extreme values that could skew calibration
+        if (fabs(gx) < 20.0f && fabs(gy) < 20.0f && fabs(gz) < 20.0f) {
+            sum_x += gx;
+            sum_y += gy;
+            sum_z += gz;
+        } else {
+            // Skip this sample but don't increment i
+            i--;
+            // Prevent infinite loop
+            timeout_counter++;
+            continue;
+        }
+        
+        // Small delay between readings
+        SysTick_ms(10);
+        
+        timeout_counter++;
+    }
+    
+    // Calculate and apply offsets
+    if (timeout_counter < 1000) {
+        // Normal calculation
+        gyro_offset_x = sum_x / num_samples;
+        gyro_offset_y = sum_y / num_samples;
+        gyro_offset_z = sum_z / num_samples;
+        
+        // Cap maximum offset values to prevent unreasonable values
+        if (fabs(gyro_offset_z) > 5.0f) {
+            gyro_offset_z = (gyro_offset_z > 0) ? 5.0f : -5.0f;
+            SendDebugMessage("Warning: Z offset capped to reasonable value");
+        }
+    } else {
+        // Timeout occurred, use safe defaults
+        gyro_offset_x = 0.0f;
+        gyro_offset_y = 0.0f;
+        gyro_offset_z = 0.0f;
+        SendDebugMessage("Calibration timeout! Using default values");
+    }
+    
+    // Set calibrated flag
+    gyro_calibrated = true;
+    
+    // Reset yaw to 0 after calibration
+    yaw = 0.0f;
+    
+    // Display calibration results
+    char buffer[16];
+    sprintf(buffer, "X:%.2f Y:%.2f", gyro_offset_x, gyro_offset_y);
+    LCD_SetCursor(0, 0);
+    LCD_Print(buffer);
+    
+    sprintf(buffer, "Z:%.2f", gyro_offset_z);
+    LCD_SetCursor(1, 0);
+    LCD_Print(buffer);
+    
+    // Send calibration results via UART
+    char debug_buffer[50];
+    sprintf(debug_buffer, "Gyro offsets: X=%.2f Y=%.2f Z=%.2f", 
+            gyro_offset_x, gyro_offset_y, gyro_offset_z);
+    SendDebugMessage(debug_buffer);
+    
+    // Clear message to indicate completion
+    LCD_SetCursor(0, 0);
+    LCD_Print("Calibration OK ");
+    
+    // Brief delay to show results
+    SysTick_ms(50);
+    
+    // Send confirmation of completion
+    SendDebugMessage("Gyroscope calibration completed successfully");
+}
+
+/******************** MOTOR CONTROL FUNCTIONS ********************/
+
+void InitializeMotorControl(void) {
+    // Enable GPIOD clock
+    RCC->AHB1ENR |= (1 << 3);
+    
+    // Configure motor control pins (PD0, PD1, PD6, PD7) as outputs
+    GPIOD->MODER &= ~((3 << 0) | (3 << 2) | (3 << 12) | (3 << 14));
+    GPIOD->MODER |= ((1 << 0) | (1 << 2) | (1 << 12) | (1 << 14));
+    
+    // Initialize motors to stop
+    GPIOD->ODR &= ~((1 << 0) | (1 << 1) | (1 << 6) | (1 << 7));
+}
+
+void InitializeEncoders(void) {
+    // Enable GPIOD and SYSCFG clocks
+    RCC->AHB1ENR |= (1 << 3);
+    RCC->APB2ENR |= (1 << 14);
+    
+    // Configure PD4 (left encoder)
+    SYSCFG->EXTICR[1] |= (3 << 0);    // PD4 as source for EXTI4
+    GPIOD->PUPDR |= (2 << 8);         // Pull-down
+    EXTI->IMR |= (1 << 4);            // Enable interrupt
+    EXTI->FTSR |= (1 << 4);           // Falling edge trigger
+    EXTI->PR |= (1 << 4);             // Clear pending flag
+    NVIC_EnableIRQ(EXTI4_IRQn);
+    
+    // Configure PD5 (right encoder)
+    SYSCFG->EXTICR[1] |= (3 << 4);    // PD5 as source for EXTI5
+    GPIOD->PUPDR |= (2 << 10);        // Pull-down
+    EXTI->IMR |= (1 << 5);            // Enable interrupt
+    EXTI->FTSR |= (1 << 5);           // Falling edge trigger
+    EXTI->PR |= (1 << 5);             // Clear pending flag
+    NVIC_EnableIRQ(EXTI9_5_IRQn);
+    
+    // Reset counters
+    cont_derecho = 0;
+    cont_izquierdo = 0;
+}
+
+void MotorControl(int left_speed, int right_speed) {
+    // Control motor directions based on speed sign
+    
+    left_speed = -left_speed;  
+    right_speed = -right_speed;
+
+    // Left motor (Invertido para corregir dirección)
+    if (left_speed >= 0) {
+        // Forward - Conexiones invertidas
+        GPIOD->ODR &= ~(1 << 6);      // Set PD6 low
+        GPIOD->ODR |= (1 << 7);       // Set PD7 high
+    } else {
+        // Backward - Conexiones invertidas
+        GPIOD->ODR |= (1 << 6);       // Set PD6 high
+        GPIOD->ODR &= ~(1 << 7);      // Set PD7 low
+    }
+    
+    // Right motor
+    if (right_speed >= 0) {
+        // Forward
+        GPIOD->ODR |= (1 << 1);       // Set PD1 high
+        GPIOD->ODR &= ~(1 << 0);      // Set PD0 low
+    } else {
+        // Backward
+        GPIOD->ODR &= ~(1 << 1);      // Set PD1 low
+        GPIOD->ODR |= (1 << 0);       // Set PD0 high
+    }
+    
+    // Adjust PWM duty cycle based on absolute speed values
+    TIM5->CCR1 = (left_speed != 0 || right_speed != 0) ? MOTOR_SPEED : 0;
+}
+
+void SetReferencePositions(void) {
+    if (!referencias_configuradas) {
+        ref_derecho = cont_derecho;
+        ref_izquierdo = cont_izquierdo;
+        target_yaw = yaw;
+        referencias_configuradas = true;
+    }
+}
+
+void ResetReferencePositions(void) {
+    referencias_configuradas = false;
+}
+
+bool MoveDistance(int ticks) {
+    // Ensure reference positions are set
+    SetReferencePositions();
+    
+    // Calculate the distance traveled
+    int left_distance = abs(cont_izquierdo - ref_izquierdo);
+    int right_distance = abs(cont_derecho - ref_derecho);
+    int avg_distance = (left_distance + right_distance) / 2;
+    
+    // Check for obstacles in front when moving forward
+    if (obstacle_detected && servo_position >= 60 && servo_position <= 120) {
+        // Stop immediately for obstacle directly ahead
+        MotorControl(0, 0);
+        SendDebugMessage("Movement stopped due to obstacle ahead");
+        return true;  // Consider movement complete to prevent further attempts
+    }
+    
+    // Debug info with enhanced information
+    if (debug_counter % 50 == 0) {  // Send debug messages every ~500ms
+        sprintf(debug_text, "Move: L=%d, R=%d, Target=%d, Avg=%d, State=%d", 
+                left_distance, right_distance, abs(ticks), avg_distance, estado_actual);
+        SendDebugMessage(debug_text);
+    }
+    
+    // Check if we've reached or exceeded target distance
+    if (avg_distance >= abs(ticks) || left_distance >= abs(ticks) || right_distance >= abs(ticks)) {
+        // Stop motors immediately
+        MotorControl(0, 0);
+        
+        // Include the current state in the log message
+        if (estado_actual == ESTADO_AVANZANDO_Y) {
+            SendDebugMessage("Y distance reached - stopping");
+        } else if (estado_actual == ESTADO_AVANZANDO_X) {
+            SendDebugMessage("X distance reached - stopping");
+        } else {
+            SendDebugMessage("Distance reached - stopping");
+        }
+        
+        ResetReferencePositions();
+        return true;  // Movement complete
+    } 
+    // Safety timeout: if we've moved significantly more than expected, stop anyway
+    else if (avg_distance > abs(ticks) * 1.5) {
+        MotorControl(0, 0);
+        SendDebugMessage("Safety limit exceeded - stopping");
+        ResetReferencePositions();
+        return true;
+    }
+    else {
+        // Direction based on the sign of the target ticks
+        int base_speed = MOTOR_SPEED;
+        
+        // Adjust motor speeds based on current state
+        int left_speed = base_speed;
+        int right_speed = base_speed;
+        
+        // Apply different speed adjustments based on axis of movement
+        if (estado_actual == ESTADO_AVANZANDO_Y) {
+            // For Y movement, we need right-side compensation (70% faster)
+            right_speed = base_speed + (int)(base_speed * 0.70);
+        } else if (estado_actual == ESTADO_AVANZANDO_X) {
+            // For X movement (after turning), use more balanced speeds
+            // with a slight compensation for any drift
+            right_speed = base_speed + (int)(base_speed * 0.20);
+        }
+        
+        // Apply direction based on state and target
+        if (estado_actual == ESTADO_AVANZANDO_Y && target_y < 0) {
+            // For Y movement, negative Y means move backward
+            MotorControl(-left_speed, -right_speed);
+        } 
+        else if (estado_actual == ESTADO_AVANZANDO_X && target_x < 0) {
+            // For X movement, negative X means move backward
+            MotorControl(left_speed, right_speed);
+        }
+        else {
+            // Otherwise move forward with appropriate compensation
+            MotorControl(left_speed, right_speed);
+        }
+        return false; // Still moving
+    }
+}
+
+bool Turn(float angle) {
+    // Ensure reference angle is set
+    SetReferencePositions();
+    
+    // Store our target angle as a value between 0-360
+    static float absolute_target_angle = 0.0f;
+    static bool target_initialized = false;
+    static int turn_timeout = 0;
+    
+    // Initialize target angle on first call
+    if (!target_initialized) {
+        // Calculate target angle in absolute terms (0-360 range)
+        absolute_target_angle = target_yaw + angle;
+        
+        // Normalize to 0-360 range
+        while (absolute_target_angle >= 360.0f) absolute_target_angle -= 360.0f;
+        while (absolute_target_angle < 0.0f) absolute_target_angle += 360.0f;
+        
+        target_initialized = true;
+        turn_timeout = 0;
+        
+        sprintf(debug_text, "Turn initialized: Target=%.1f, Current=%.1f", 
+                absolute_target_angle, yaw);
+        SendDebugMessage(debug_text);
+    }
+    
+    // Calculate the smallest angular distance to target (considering the circle)
+    float angular_distance = absolute_target_angle - yaw;
+    
+    // Normalize to -180 to +180 range for shortest turn direction
+    if (angular_distance > 180.0f) angular_distance -= 360.0f;
+    if (angular_distance < -180.0f) angular_distance += 360.0f;
+    
+    // Debug info with more frequent updates
+    if (debug_counter % 50 == 0) {
+        sprintf(debug_text, "Turn: Current=%.1f, Target=%.1f, Distance=%.1f, Timeout=%d", 
+                yaw, absolute_target_angle, angular_distance, turn_timeout);
+        SendDebugMessage(debug_text);
+    }
+    
+    // Increment timeout counter
+    turn_timeout++;
+    
+    // Check if we've completed the turn within threshold or timeout exceeded
+    if (fabs(angular_distance) < TURN_THRESHOLD || turn_timeout > 500) {
+        // Stop motors
+        MotorControl(0, 0);
+        
+        // Send appropriate message
+        if (turn_timeout > 500) {
+            SendDebugMessage("Turn safety timeout triggered - stopping");
+        } else {
+            SendDebugMessage("Turn completed - target angle reached");
+        }
+        
+        // Reset turn variables
+        target_initialized = false;
+        turn_timeout = 0;
+        
+        // DO NOT reset references here, let the state machine handle it
+        // ResetReferencePositions();
+        
+        return true;  // Turn complete
+    } else {
+        // Determine turn direction based on shortest path
+        bool turn_right = (angular_distance > 0);
+        
+        // Calculate speed based on distance to target (slower as we approach)
+        int base_speed = MOTOR_SPEED;
+        float speed_factor = 1.0f;
+        
+        // Reduce speed when close to target angle for more precision
+        if (fabs(angular_distance) < 30.0f) {
+            speed_factor = 0.5f;  // 50% speed when within 30 degrees
+        }
+        if (fabs(angular_distance) < 10.0f) {
+            speed_factor = 0.3f;  // 30% speed when within 10 degrees
+        }
+        
+        int turn_speed = (int)(base_speed * speed_factor);
+        
+        // Apply turn with variable speed
+        if (turn_right) {
+            // Turn right (clockwise)
+            MotorControl(turn_speed, -turn_speed);
+        } else {
+            // Turn left (counter-clockwise)
+            MotorControl(-turn_speed, turn_speed);
+        }
+        
+        return false; // Still turning
+    }
+}
+
+/******************** COMMUNICATION FUNCTIONS ********************/
+
+void ConfigureUART(void) {
+    // Enable GPIOD clock
+    RCC->AHB1ENR |= (1 << 3);
+    
+    // Configure PD8 (TX) and PD9 (RX) for USART3
+    GPIOD->MODER &= ~((3 << 16) | (3 << 18));
+    GPIOD->MODER |= ((2 << 16) | (2 << 18));     // Alternate function
+    GPIOD->AFR[1] &= ~((15 << 0) | (15 << 4));
+    GPIOD->AFR[1] |= ((7 << 0) | (7 << 4));      // AF7 (USART3)
+    
+    // Enable USART3 clock
+    RCC->APB1ENR |= (1 << 18);
+    
+    // Disable USART3 before configuring
+    USART3->CR1 &= ~(1 << 0);
+    
+    // Configure USART3 for 9600 baud @ 16MHz
+    USART3->BRR = 0x683;
+    
+    // Enable error interrupts along with RXNE
+    USART3->CR1 |= ((1 << 5) | (1 << 2) | (1 << 3));  // RXNE interrupt, TX/RX enable
+    
+    // Enable hardware flow control if pins are available
+    // USART3->CR3 |= (1 << 8) | (1 << 9);  // CTS and RTS enable
+    
+    // Set oversampling to 16
+    USART3->CR1 &= ~(1 << 15);
+    
+    // Enable USART3
+    USART3->CR1 |= (1 << 0);
+    
+    // Clear error flags if any are set
+    USART3->ICR = 0x1F;
+    
+    // Initialize UART receive buffer
+    for (int i = 0; i < UART_BUFFER_SIZE; i++) {
+        uart_buffer[i] = 0;
+    }
+    uart_index = 0;
+    uart_complete = false;
+    
+    // Enable USART3 interrupt in NVIC
+    NVIC_SetPriority(USART3_IRQn, 0);  // Set high priority
+    NVIC_EnableIRQ(USART3_IRQn);
+    
+    // Send test message to confirm UART is working
+    SendDebugMessage("UART initialized successfully");
+}
+
+void ProcessUARTMessage(void) {
+    char debug_buffer[50];
+    
+    // Remove CR/LF and null-terminate
+    for (int i = 0; i < uart_index; i++) {
+        if (uart_buffer[i] == '\r' || uart_buffer[i] == '\n') {
+            uart_buffer[i] = '\0';
+            break;
+        }
+    }
+    
+    // Make a clean copy of the message with leading/trailing whitespace removed
+    char clean_buffer[UART_BUFFER_SIZE];
+    int start = 0, end = strlen(uart_buffer) - 1;
+    
+    // Skip leading whitespace
+    while (uart_buffer[start] == ' ' || uart_buffer[start] == '\t') {
+        start++;
+    }
+    
+    // Skip trailing whitespace
+    while (end >= start && (uart_buffer[end] == ' ' || uart_buffer[end] == '\t' || 
+           uart_buffer[end] == '\r' || uart_buffer[end] == '\n')) {
+        end--;
+    }
+    
+    // Copy cleaned message
+    int clean_len = end - start + 1;
+    if (clean_len > 0) {
+        strncpy(clean_buffer, uart_buffer + start, clean_len);
+    }
+    clean_buffer[clean_len > 0 ? clean_len : 0] = '\0';
+    
+    // Print raw and cleaned message for debugging
+    sprintf(debug_buffer, "Raw message: '%s'", uart_buffer);
+    SendDebugMessage(debug_buffer);
+    sprintf(debug_buffer, "Cleaned: '%s' (len=%d)", clean_buffer, clean_len);
+    SendDebugMessage(debug_buffer);
+    
+    // If message is empty after trimming, ignore it
+    if (clean_len <= 0) {
+        SendDebugMessage("Empty message, ignoring");
+        return;
+    }
+    
+    // Make a lowercase copy for command checking
+    char lower_buffer[UART_BUFFER_SIZE];
+    for (int i = 0; i <= clean_len; i++) {
+        lower_buffer[i] = tolower(clean_buffer[i]);
+    }
+    
+    // Check for "stop" command (case insensitive)
+    if (strcmp(lower_buffer, "stop") == 0) {
+        // Emergency stop - halt all movement immediately
+        MotorControl(0, 0);
+        estado_actual = ESTADO_DETENIDO;
+        SendDebugMessage("EMERGENCY STOP ACTIVATED");
+        
+        // Update LCD
+        LCD_SetCursor(0, 0);
+        LCD_Print("STOP            ");
+        LCD_SetCursor(1, 0);
+        LCD_Print("                ");
+        return;
+    } 
+      // Check for "calibrate" command (case insensitive)
+    if (strcmp(lower_buffer, "calibrate") == 0) {
+        // Calibrate gyroscope
+        SendDebugMessage("Starting gyroscope calibration...");
+        MotorControl(0, 0);
+        estado_actual = ESTADO_DETENIDO;
+        CalibrateGyroscope();
+        return;
+    }
+      // Check for "scan" command (case insensitive)
+    if (strcmp(lower_buffer, "scan") == 0) {
+        // Perform a complete obstacle scan
+        SendDebugMessage("Performing full obstacle scan...");
+        MotorControl(0, 0);
+        estado_actual = ESTADO_DETENIDO;
+        
+        // Show scanning message on LCD
+        LCD_SetCursor(0, 0);
+        LCD_Print("Escaneando...   ");
+        LCD_SetCursor(1, 0);
+        LCD_Print("                ");
+        
+        // Perform a full 180-degree scan
+        for (int angle = 0; angle <= 180; angle += 5) {
+            SetServoPosition(angle);
+            SysTick_ms(50);  // Give servo time to move
+            
+            float distance = ReadUltrasonicDistance();
+            if (distance > 0.0f) {
+                sprintf(debug_text, "Scan %d deg: %.1f cm", angle, distance);
+                SendDebugMessage(debug_text);
+                
+                // Update LCD with current scan results
+                sprintf(debug_text, "Ang:%3d Dist:%4.1f", angle, distance);
+                LCD_SetCursor(1, 0);
+                LCD_Print(debug_text);
+                
+                // Check for obstacle
+                if (distance <= OBSTACLE_THRESHOLD) {
+                    // Record obstacle
+                    obstacle_detected = true;
+                    obstacle_direction = angle;
+                    current_distance = distance;
+                }
+            }
+        }
+        
+        // Return to center position
+        SetServoPosition(90);
+        
+        // Show scan complete message
+        if (obstacle_detected) {
+            sprintf(debug_text, "Obstacle at %d deg: %.1f cm", obstacle_direction, current_distance);
+            SendDebugMessage(debug_text);
+            UpdateLCDObstacle(current_distance, obstacle_direction);
+        } else {
+            SendDebugMessage("No obstacles detected within range");
+            LCD_SetCursor(0, 0);
+            LCD_Print("Scan Completo   ");
+            LCD_SetCursor(1, 0);
+            LCD_Print("No hay obstaculo");
+            SysTick_ms(2000);
+            UpdateLCD(target_x, target_y, yaw);
+        }
+        
+        return;
+    }
+    
+    // Check for "ecotest" command for HC-SR04 raw testing
+    if (strcmp(lower_buffer, "ecotest") == 0) {
+        SendDebugMessage("Iniciando prueba del sensor HC-SR04...");
+        MotorControl(0, 0);
+        estado_actual = ESTADO_DETENIDO;
+        
+        // Mostrar mensaje en el LCD
+        LCD_SetCursor(0, 0);
+        LCD_Print("Probando HC-SR04");
+        LCD_SetCursor(1, 0);
+        LCD_Print("                ");
+        
+        // Centrar el servo
+        SetServoPosition(90);
+        SysTick_ms(100);
+        
+        // Realizar varias lecturas directas
+        for (int i = 0; i < 5; i++) {
+            // Enviar pulso de trigger
+            GPIOC->ODR &= ~(1 << ULTRASONIC_TRIG_PIN);
+            SysTick_ms(5);
+            GPIOC->ODR |= (1 << ULTRASONIC_TRIG_PIN);
+            SysTick_Wait(160);  // 10µs a 16MHz
+            GPIOC->ODR &= ~(1 << ULTRASONIC_TRIG_PIN);
+            
+            // Medir tiempo de eco
+            uint32_t timeout = 0;
+            while (!(GPIOC->IDR & (1 << ULTRASONIC_ECHO_PIN)) && timeout < 100000) {
+                timeout++;
+            }
+            
+            if (timeout >= 100000) {
+                SendDebugMessage("Error: No se detectó señal ECHO HIGH");
+                continue;
+            }
+            
+            // Medir duración del pulso
+            uint32_t start_time = SysTick->VAL;
+            timeout = 0;
+            
+            while ((GPIOC->IDR & (1 << ULTRASONIC_ECHO_PIN)) && timeout < 200000) {
+                timeout++;
+            }
+            
+            if (timeout >= 200000) {
+                SendDebugMessage("Error: ECHO quedó en HIGH");
+                continue;
+            }
+            
+            // Calcular duración del pulso
+            uint32_t end_time = SysTick->VAL;
+            uint32_t pulse_width;
+            
+            if (end_time <= start_time) {
+                pulse_width = start_time - end_time;
+            } else {
+                pulse_width = (SysTick->LOAD - end_time) + start_time;
+            }
+            
+            // Convertir a microsegundos y calcular distancia
+            uint32_t pulse_us = pulse_width / 16;
+            float distance = pulse_us / 58.0f;
+            
+            // Mostrar resultados
+            sprintf(debug_text, "Pulso: %lu us = %.2f cm", pulse_us, distance);
+            SendDebugMessage(debug_text);
+            
+            // Actualizar LCD
+            sprintf(debug_text, "Prueba %d: %.2f cm", i+1, distance);
+            LCD_SetCursor(1, 0);
+            LCD_Print(debug_text);
+            
+            // Esperar entre pruebas
+            SysTick_ms(500);
+        }
+        
+        // Prueba completa
+        SendDebugMessage("Prueba HC-SR04 completa");
+        SysTick_ms(1000);
+        UpdateLCD(target_x, target_y, yaw);
+        
+        return;
+    }
+    
+    // Try multiple coordinate formats with sscanf
+    int x = 0, y = 0;
+    int result = 0;
+    
+    // Try common formats: "x,y", "x, y", "x.y"
+    if (sscanf(clean_buffer, "%d,%d", &x, &y) == 2) {
+        result = 2;
+    } else if (sscanf(clean_buffer, "%d, %d", &x, &y) == 2) {
+        result = 2;
+    } else if (sscanf(clean_buffer, "%d.%d", &x, &y) == 2) {
+        result = 2;
+    }
+    
+    if (result == 2) {
+        // Valid coordinates received
+        target_x = x;
+        target_y = y;
+        
+        sprintf(debug_buffer, "Parsed coordinates: %d,%d", target_x, target_y);
+        SendDebugMessage(debug_buffer);
+        
+        // Special case for 0,0 (stop at origin)
+        if (target_x == 0 && target_y == 0) {
+            MotorControl(0, 0);
+            estado_actual = ESTADO_DETENIDO;
+            SendDebugMessage("Robot stopped at 0,0");
+            
+            // Update LCD
+            UpdateLCD(0, 0, yaw);
+            return;
+        }
+        
+        // Convert to encoder ticks
+        int tickX = (int)(target_x * TICK_FACTOR);
+        int tickY = (int)(target_y * TICK_FACTOR);
+        
+        // Reset counters and start movement sequence
+        cont_derecho = 0;
+        cont_izquierdo = 0;
+        ResetReferencePositions();
+        
+        // Update state machine
+        estado_actual = ESTADO_AVANZANDO_Y;
+        
+        // Send acknowledgment
+        sprintf(debug_text, "Moving to X=%d Y=%d (ticks: %d,%d)", 
+                target_x, target_y, tickX, tickY);
+        SendDebugMessage(debug_text);
+    } else {
+        // Invalid format - print detailed error for debugging
+        sprintf(debug_buffer, "Invalid format '%s'. Use X,Y or 'stop'", clean_buffer);
+        SendDebugMessage(debug_buffer);
+    }
+}
+
+void SendDebugMessage(const char* message) {
+    // Send a debug message via UART
+    for (int i = 0; i < strlen(message); i++) {
+        USART3->TDR = message[i];
+        while (((USART3->ISR & 0x80) >> 7) == 0) {} // Wait for TXE
+    }
+    
+    // Add CR+LF
+    USART3->TDR = 0x0A; // Line feed
+    while ((USART3->ISR & 0x80) == 0) {}
+    USART3->TDR = 0x0D; // Carriage return
+    while (((USART3->ISR & 0x80) >> 7) == 0) {}
+}
+
+/******************** TIMER FUNCTIONS ********************/
+
+void ConfigureSysTick(void) {
+    SysTick->LOAD = 0x00FFFFFF;
+    SysTick->CTRL |= (1 << 0) | (1 << 2); // Enable SysTick and interrupt
+}
+
+void SysTick_Wait(uint32_t n) {
+    SysTick->LOAD = n - 1;
+    SysTick->VAL = 0;
+    while ((SysTick->CTRL & 0x00010000) == 0);
+}
+
+void SysTick_ms(uint32_t x) {
+    for (uint32_t i = 0; i < x; i++) {
+        SysTick_Wait(16000); // 1ms at 16MHz
+    }
+}
+
+void ConfigureTimer3(void) {
+    // Enable TIM3 clock
+    RCC->APB1ENR |= (1 << 1);
+    
+    // Configure TIM3 for 100Hz (10ms period)
+    TIM3->PSC = 15;         // Prescaler: 16MHz/16 = 1MHz
+    TIM3->ARR = 9999;       // 1MHz/10000 = 100Hz
+    TIM3->CNT = 0;
+    TIM3->SR = 0;
+    
+    // Enable update interrupt
+    TIM3->DIER |= (1 << 0);
+    
+    // Enable timer
+    TIM3->CR1 |= (1 << 0);
+    
+    // Enable TIM3 interrupt in NVIC
+    NVIC_EnableIRQ(TIM3_IRQn);
+}
+
+void ConfigurePWM(void) {
+    // Enable GPIOA and TIM5 clocks
+    RCC->AHB1ENR |= (1 << 0);
+    RCC->APB1ENR |= (1 << 3);
+    
+    // Configure TIM5 for PWM
+    TIM5->ARR = 99;         // PWM period
+    TIM5->PSC = 15;         // Prescaler
+    TIM5->CCR1 = velocidad; // Initial duty cycle
+    TIM5->DIER |= (1 << 0); // Enable update interrupt
+    TIM5->CCMR1 |= (6 << 4); // PWM mode 1 on CH1
+    TIM5->CCER |= (1 << 0); // Enable CH1 output
+    TIM5->CR1 |= (1 << 0);  // Enable timer
+    
+    // Configure PA0 as TIM5_CH1
+    GPIOA->MODER &= ~(3 << 0);
+    GPIOA->MODER |= (2 << 0);  // Alternate function
+    GPIOA->AFR[0] |= (2 << 0); // AF2 for TIM5_CH1
+}
+
+void LCD_Command(unsigned char command) {
+    GPIOE->ODR = (GPIOE->ODR & 0xFF00) | command; // Envía comando (manteniendo los 8 bits superiores)
+    GPIOE->ODR &= ~(1 << 8);  // RS = 0 (comando)
+    GPIOE->ODR |= (1 << 9);   // E = 1
+    SysTick_ms(5);
+    GPIOE->ODR &= ~(1 << 9);  // E = 0
+    SysTick_ms(5);
+}
+void LCD_Data(unsigned char data) {
+    GPIOE->ODR = (GPIOE->ODR & 0xFF00) | data; // Envía dato
+    GPIOE->ODR |= (1 << 8);   // RS = 1 (datos)
+    GPIOE->ODR |= (1 << 9);   // E = 1
+    SysTick_ms(5);
+    GPIOE->ODR &= ~(1 << 9);  // E = 0
+    SysTick_ms(5);
+}
+void LCD_Init() {
+   SysTick_ms(50);  // Esperar a que el LCD se estabilice
+    LCD_Command(0x38); // Modo 8 bits, 2 líneas, 5x8 caracteres
+    SysTick_ms(5);
+    LCD_Command(0x0C); // Display encendido, sin cursor
+    SysTick_ms(5);
+    LCD_Command(0x01); // Limpia pantalla
+    SysTick_ms(5);
+    LCD_Command(0x06); // Modo entrada, cursor a la derecha
+   SysTick_ms(5);
+}
+
+void LCD_Print(char *str) {
+    while (*str) {
+        LCD_Data(*str++);
+    }
+}
+
+void LCD_SetCursor(unsigned char row, unsigned char col) {
+    unsigned char address;
+    if (row == 0) {
+        address = 0x80 + col; // Primera línea
+    } else {
+        address = 0xC0 + col; // Segunda línea
+    }
+    LCD_Command(address);
+}
+
+void LCD_Clear() {
+    LCD_Command(0x01); // Limpia pantalla
+    SysTick_ms(5);
+}
+
+// Inicialización de GPIO para el LCD (usando GPIOE)
+void inicializar_GPIO() {
+    RCC->AHB1ENR |= (1 << 4);  // Habilitar reloj para GPIOE
+    SysTick_ms(5);
+    // Configura PE0-PE7 como salida (datos)
+    GPIOE->MODER &= ~0x0000FFFF;  
+    GPIOE->MODER |= 0x00005555;
+    // Configura PE8 y PE9 como salida (RS y E)
+    GPIOE->MODER &= ~((3 << 16) | (3 << 18));
+    GPIOE->MODER |= (1 << 16) | (1 << 18);
+}
+// Actualizar LCD con coordenadas y ángulo
+void UpdateLCD(int x, int y, float angle) {
+    char buffer[16];
+    
+    // Actualiza la línea de coordenadas
+    sprintf(buffer, "X,Y: %d,%d      ", x, y);
+    LCD_SetCursor(0, 0);
+    LCD_Print(buffer);
+    
+    // Actualiza la línea de ángulo
+    sprintf(buffer, "Ang: %.1f deg   ", angle);
+    LCD_SetCursor(1, 0);
+    LCD_Print(buffer);
+}
+
+/******************** ULTRASONIC AND SERVO FUNCTIONS ********************/
+
+void InitializeUltrasonicSensor(void) {
+    // Enable GPIOC clock
+    RCC->AHB1ENR |= (1 << 2);
+    
+    // Configure PC10 (Trigger) as output
+    GPIOC->MODER &= ~(3 << (ULTRASONIC_TRIG_PIN * 2));
+    GPIOC->MODER |= (1 << (ULTRASONIC_TRIG_PIN * 2));  // Output mode
+    GPIOC->OSPEEDR |= (3 << (ULTRASONIC_TRIG_PIN * 2)); // High speed for accurate timing
+    
+    // Configure PC11 (Echo) as input
+    GPIOC->MODER &= ~(3 << (ULTRASONIC_ECHO_PIN * 2)); // Input mode (00)
+    GPIOC->PUPDR &= ~(3 << (ULTRASONIC_ECHO_PIN * 2));
+    GPIOC->PUPDR |= (2 << (ULTRASONIC_ECHO_PIN * 2));  // Pull-down to ensure stable low state
+    
+    // Initialize Trigger pin to low
+    GPIOC->ODR &= ~(1 << ULTRASONIC_TRIG_PIN);
+    
+    // Ensure the SysTick is properly configured for precise timing
+    // SysTick->LOAD = 0x00FFFFFF;  // Maximum reload value
+    // SysTick->VAL = 0;           // Clear current value
+    // SysTick->CTRL |= (1 << 0) | (1 << 2); // Enable SysTick and use processor clock
+    
+    // Send debug messages
+    SendDebugMessage("Ultrasonic sensor initializing...");
+    
+    // Pause briefly to let the sensor stabilize
+    SysTick_ms(100);
+    
+    // Perform a test measurement
+    float test_distance = ReadUltrasonicDistance();
+    char debug_str[50];
+    sprintf(debug_str, "Initial test measurement: %.2f cm", test_distance);
+    SendDebugMessage(debug_str);
+    
+    // Additional HC-SR04 debugging info
+    SendDebugMessage("HC-SR04 pins: TRIG=PC10, ECHO=PC11");
+    SendDebugMessage("Ultrasonic sensor initialized successfully");
+}
+
+void InitializeServo(void) {
+    // Enable GPIOA and TIM2 clocks
+    RCC->AHB1ENR |= (1 << 0);  // GPIOA
+    RCC->APB1ENR |= (1 << 0);  // TIM2
+    
+    // Configure PA2 as TIM2_CH3 (alternate function)
+    GPIOA->MODER &= ~(3 << (SERVO_PIN * 2));
+    GPIOA->MODER |= (2 << (SERVO_PIN * 2));     // Alternate function
+    GPIOA->AFR[0] &= ~(15 << (SERVO_PIN * 4));
+    GPIOA->AFR[0] |= (1 << (SERVO_PIN * 4));    // AF1 (TIM2)
+    
+    // Configure TIM2 for PWM
+    TIM2->PSC = 16 - 1;        // 1MHz (16MHz / 16)
+    TIM2->ARR = 20000 - 1;     // 20ms period (50Hz)
+    
+    // Configure CH3 as PWM output
+    TIM2->CCMR2 &= ~(7 << 4);  // Clear output mode
+    TIM2->CCMR2 |= (6 << 4);   // PWM mode 1
+    TIM2->CCER |= (1 << 8);    // Enable CH3 output
+    
+    // Set initial position (90 degrees - center position)
+    SetServoPosition(90);
+    
+    // Enable TIM2
+    TIM2->CR1 |= (1 << 0);
+    
+    SendDebugMessage("Servo motor initialized");
+}
+
+float ReadUltrasonicDistance(void) {
+    // Implementación completamente nueva usando TIM4 para medición precisa
+    
+    // Habilitar reloj para TIM4 si no se ha hecho antes
+    RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;
+    
+    // Configurar TIM4 para contar a 1MHz (cada cuenta = 1µs)
+    TIM4->PSC = 16-1;  // 16MHz / 16 = 1MHz
+    TIM4->ARR = 0xFFFF;  // Máximo valor posible
+    TIM4->CNT = 0;
+    TIM4->CR1 &= ~TIM_CR1_CEN;  // Asegurar que el timer esté detenido
+    
+    // Preparación: Asegurar trigger bajo durante al menos 4µs
+    GPIOC->ODR &= ~(1 << ULTRASONIC_TRIG_PIN);
+    SysTick_ms(4);
+    
+    // 1. Enviar pulso de 10µs en TRIGGER
+    GPIOC->ODR |= (1 << ULTRASONIC_TRIG_PIN);
+    SysTick_Wait(160);  // 10µs a 16MHz
+    GPIOC->ODR &= ~(1 << ULTRASONIC_TRIG_PIN);
+    
+    // 2. Esperar el flanco de subida de ECHO
+    uint32_t timeout = 0;
+    while (!(GPIOC->IDR & (1 << ULTRASONIC_ECHO_PIN))) {
+        timeout++;
+        if (timeout > 100000) { // Aproximadamente 6ms de timeout
+            SendDebugMessage("Error: No rising edge detected on ECHO");
+            return 0.0f;
+        }
+    }
+    
+    // 3. Cuando ECHO sube, iniciar el timer
+    TIM4->CNT = 0;
+    TIM4->CR1 |= TIM_CR1_CEN;  // Iniciar timer
+    
+    // 4. Esperar a que ECHO baje
+    timeout = 0;
+    while ((GPIOC->IDR & (1 << ULTRASONIC_ECHO_PIN))) {
+        timeout++;
+        if (timeout > 200000) { // Aproximadamente 12ms (más de 2m de rango)
+            SendDebugMessage("Error: No falling edge detected on ECHO (stuck high)");
+            TIM4->CR1 &= ~TIM_CR1_CEN;  // Detener timer
+            return 0.0f;
+        }
+    }
+    
+    // 5. Cuando ECHO baja, detener el timer y leer el valor
+    TIM4->CR1 &= ~TIM_CR1_CEN;  // Detener timer
+    uint32_t echo_time_us = TIM4->CNT;  // Tiempo en microsegundos
+    
+    // IMPORTANTE: Factor de conversión para HC-SR04
+    // Distancia (cm) = Tiempo (µs) / 58
+    float distance_cm = (float)echo_time_us / 58.0f;
+    
+    // 6. Loguear datos para debug
+    char debug_buf[50];
+    sprintf(debug_buf, "Echo time: %lu us -> %.2f cm", echo_time_us, distance_cm);
+    SendDebugMessage(debug_buf);
+    
+    // 7. Filtrado de valores anómalos y rango válido (2cm a 400cm)
+    if (distance_cm < 2.0f || distance_cm > 400.0f) {
+        SendDebugMessage("Invalid distance reading - out of range");
+        return 0.0f;
+    }
+    
+    // 8. Factor de corrección (ajustar basado en mediciones reales)
+    // Si a 7cm lee 2cm, el factor es aproximadamente 7/2 = 3.5
+    float correction_factor = 1.0f;
+    float corrected_distance = distance_cm * correction_factor;
+    
+    // Limitar el valor corregido al rango válido
+    if (corrected_distance > 400.0f) corrected_distance = 400.0f;
+    
+    sprintf(debug_buf, "Corrected distance: %.2f cm", corrected_distance);
+    SendDebugMessage(debug_buf);
+    
+    return corrected_distance;
+}
+
+void SetServoPosition(int angle) {
+    // Constrain angle to 0-180 degrees
+    if (angle < 0) angle = 0;
+    if (angle > 180) angle = 180;
+    
+    // For smoother movement, move gradually if the change is large
+    static int prev_angle = 90;  // Default center position
+    int angle_diff = abs(angle - prev_angle);
+    
+    // For large movements, move in steps
+    if (angle_diff > 15) {
+        int steps = angle_diff / 5;  // Move in 5-degree steps
+        int dir = (angle > prev_angle) ? 1 : -1;
+        
+        for (int i = 1; i <= steps; i++) {
+            int intermediate_angle = prev_angle + (dir * 5 * i);
+            
+            // Convert intermediate angle to pulse width (linear interpolation)
+            uint32_t pulse_width = SERVO_MIN_PULSE + 
+                ((SERVO_MAX_PULSE - SERVO_MIN_PULSE) * intermediate_angle) / 180;
+            
+            // Set PWM pulse width
+            TIM2->CCR3 = pulse_width;
+            
+            // Small delay between steps
+            SysTick_ms(15);
+        }
+    }
+    
+    // Final position setting
+    uint32_t pulse_width = SERVO_MIN_PULSE + 
+        ((SERVO_MAX_PULSE - SERVO_MIN_PULSE) * angle) / 180;
+    
+    // Set PWM pulse width
+    TIM2->CCR3 = pulse_width;
+    
+    // Update global variable
+    servo_position = angle;
+    prev_angle = angle;
+    
+    // Debug the servo position occasionally (every 45 degrees)
+    if (angle % 45 == 0) {
+        char debug_str[50];
+        sprintf(debug_str, "Servo position: %d degrees (PWM: %lu)", angle, pulse_width);
+        SendDebugMessage(debug_str);
+    }
+    
+    // Small delay to ensure the command is processed
+    SysTick_ms(5);
+}
+
+void ScanForObstacles(void) {
+    // Leer la distancia en la posición actual del servo
+    float distance = ReadUltrasonicDistance();
+    
+    // Actualizar variables globales si la lectura es válida
+    if (distance > 0.0f) {
+        current_distance = distance;
+        
+        // Verificar si hay un obstáculo
+        if (distance <= OBSTACLE_THRESHOLD) {
+            // Registrar la posición del obstáculo detectado
+            obstacle_detected = true;
+            obstacle_direction = servo_position;
+            
+            // Mensaje de depuración (solo cuando se detecta un obstáculo)
+            sprintf(debug_text, "Obstaculo: %.1f cm en %d grados", distance, servo_position);
+            SendDebugMessage(debug_text);
+            
+            // Actualizar LCD para obstáculos críticos al frente
+            if (servo_position >= 75 && servo_position <= 105) {
+                UpdateLCDObstacle(distance, servo_position);
+            }
+        }
+    }
+    
+    // Actualizar la posición del servo para escaneo
+    static bool full_scan_mode = false;
+    static int scan_counter = 0;
+    
+    // Cada 20 llamadas (~2 segundos), hacer un escaneo completo
+    scan_counter++;
+    if (scan_counter >= 20) {
+        full_scan_mode = true;
+        scan_counter = 0;
+    }
+    
+    // Parámetros de escaneo según el modo
+    int step_size = full_scan_mode ? 15 : 10;
+    int min_angle = full_scan_mode ? 0 : 30;
+    int max_angle = full_scan_mode ? 180 : 150;
+    
+    // Actualizar posición del servo (oscilar entre ángulos mínimo y máximo)
+    servo_position += (step_size * servo_scan_direction);
+    
+    // Cambiar dirección en los límites
+    if (servo_position >= max_angle) {
+        servo_position = max_angle;
+        servo_scan_direction = -1;
+        full_scan_mode = false;
+    } else if (servo_position <= min_angle) {
+        servo_position = min_angle;
+        servo_scan_direction = 1;
+    }
+    
+    // Mover servo a la nueva posición
+    SetServoPosition(servo_position);
+    
+    // Pequeña pausa para que el servo llegue a la posición
+    SysTick_ms(20);
+}
+
+void UpdateLCDObstacle(float distance, int direction) {
+    char buffer[16];
+    
+    // First line: Show obstacle warning
+    LCD_SetCursor(0, 0);
+    LCD_Print("OBSTACULO!      ");
+    
+    // Second line: Show distance and direction
+    sprintf(buffer, "%.1fcm Dir:%d deg", distance, direction);
+    LCD_SetCursor(1, 0);
+    LCD_Print(buffer);
+}
+
+void HandleObstacleDetection(void) {
+    static int obstacle_counter = 0;
+    static float min_distance = 400.0f;
+    static bool alert_sent = false;
+    
+    // Stop motors immediately
+    MotorControl(0, 0);
+    
+    // Update LCD with obstacle information
+    UpdateLCDObstacle(current_distance, obstacle_direction);
+    
+    // Keep track of minimum distance detected
+    if (current_distance < min_distance && current_distance > 0.0f) {
+        min_distance = current_distance;
+    }
+    
+    // Send alert message (only once per obstacle)
+    if (!alert_sent) {
+        sprintf(debug_text, "ALERT: Obstacle detected at %.1f cm, direction %d degrees", 
+                current_distance, obstacle_direction);
+        SendDebugMessage(debug_text);
+        alert_sent = true;
+        
+        // Make beep sound if possible (using existing hardware)
+        TIM5->CCR1 = MOTOR_SPEED; // Use motor PWM for a brief moment
+        SysTick_ms(50);
+        TIM5->CCR1 = 0;
+    }
+    
+    // Increment counter for persistent obstacle detection
+    obstacle_counter++;
+    
+    // Every ~1 second, check if obstacle is still present
+    if (obstacle_counter >= 100) {
+        // Reset counter
+        obstacle_counter = 0;
+        
+        // Update with latest distance
+        float latest_distance = ReadUltrasonicDistance();
+        
+        // If distance is now greater than threshold, we can clear the obstacle state
+        if (latest_distance > OBSTACLE_THRESHOLD || latest_distance < 0.0f) {
+            obstacle_detected = false;
+            min_distance = 400.0f;
+            alert_sent = false;
+            
+            // Send clearance message
+            SendDebugMessage("Obstacle cleared - path is now open");
+            
+            // Reset servo to center position
+            SetServoPosition(90);
+        } else {
+            // Obstacle still present - update with current info
+            current_distance = latest_distance;
+            UpdateLCDObstacle(current_distance, obstacle_direction);
+            
+            // Periodic reminder about obstacle
+            sprintf(debug_text, "Obstacle still present: %.1f cm", current_distance);
+            SendDebugMessage(debug_text);
+        }
+    }
+}
+/******************** MAIN FUNCTION ********************/
+
+int main(void) {
+    // Initialize system components
+    ConfigureSysTick();
+    InitializeMotorControl();
+    InitializeEncoders();
+    ConfigI2C();
+    ConfigMPU6050();
+    ConfigureTimer3();
+    ConfigurePWM();
+    ConfigureUART();
+    inicializar_GPIO();
+    LCD_Init();
+    LCD_Clear();
+    
+    // Initialize ultrasonic sensor and servo
+    InitializeUltrasonicSensor();
+    InitializeServo();
+    
+    // Welcome message
+    LCD_SetCursor(0, 0);
+    LCD_Print("Robot Sistema");
+    LCD_SetCursor(1, 0);
+    LCD_Print("Iniciando...");
+    
+    // Reset variables
+    cont_derecho = 0;
+    cont_izquierdo = 0;
+    yaw = 0.0f;
+    estado_actual = ESTADO_DETENIDO;
+    obstacle_detected = false;
+    current_distance = 0.0f;
+    
+    // Send startup message
+    SendDebugMessage("Robot controller initializing...");
+      // Wait for sensors to stabilize
+    SysTick_ms(1000);
+    
+    // Calibrate gyroscope at startup with safety timeout
+    uint32_t start_time = debug_counter;
+    CalibrateGyroscope();
+    
+    // Check if calibration took too long (system might have hanged)
+    if (debug_counter - start_time > 10000) {
+        // Force a system reset as calibration might have failed
+        LCD_SetCursor(0, 0);
+        LCD_Print("Error: Calib.   ");
+        LCD_SetCursor(1, 0);
+        LCD_Print("Forzando valores");
+        SysTick_ms(1000);
+        
+        // Set default values manually
+        gyro_offset_x = 0.0f;
+        gyro_offset_y = 0.0f;
+        gyro_offset_z = 0.0f;
+        gyro_calibrated = true;
+    }
+    
+    // Show ready status
+    LCD_SetCursor(0, 0);
+    LCD_Print("X,Y: 0,0      ");
+    LCD_SetCursor(1, 0);
+    LCD_Print("Ang: 0.0 deg  ");
+    
+    SendDebugMessage("Robot controller ready");
+    // Main loop
+    while (1) {
+        // Process complete UART messages
+        if (uart_complete) {
+            uart_complete = false;
+            ProcessUARTMessage();
+        }
+        
+        // Update debug counter
+        debug_counter++;
+        
+        // Scan for obstacles periodically (every ~100ms)
+        if (debug_counter % 10 == 0) {
+            ScanForObstacles();
+            
+            // Debug output (approximately every second)
+            if (debug_counter % 100 == 0) {
+                sprintf(debug_text, "Distance: %.1f cm, Servo: %d deg", current_distance, servo_position);
+                SendDebugMessage(debug_text);
+            }
+        }
+        
+        // Check for obstacles during movement states
+        if (obstacle_detected && 
+            (estado_actual == ESTADO_AVANZANDO_Y || 
+             estado_actual == ESTADO_AVANZANDO_X || 
+             estado_actual == ESTADO_GIRANDO)) {
+            
+            // Change to obstacle state
+            estado_actual = ESTADO_OBSTACULO;
+            SendDebugMessage("Changing to obstacle state");
+        }
+        
+        // Send periodic UART status messages for debugging (every ~5 seconds)
+        if (debug_counter % 5000 == 0) {
+            // Get UART status flags
+            uint32_t uart_status = USART3->ISR;
+            sprintf(debug_text, "UART status: ISR=0x%lX", uart_status);
+            SendDebugMessage(debug_text);
+        }
+          // State machine for robot movement
+        switch (estado_actual) {
+            case ESTADO_DETENIDO:
+                // Robot is stopped, waiting for commands
+                MotorControl(0, 0);
+                break;                case ESTADO_AVANZANDO_Y:
+                // Move along Y axis
+                if (MoveDistance(abs((int)(target_y * TICK_FACTOR)))) {
+                    // Y movement complete
+                    MotorControl(0, 0);  // Ensure motors are stopped
+                    SendDebugMessage("Y movement completed, stopping motors");
+                    
+                    // Check if X movement is needed
+                    if (abs(target_x) < 1) {  // Use a small threshold to avoid unnecessary turns
+                        // If no X movement needed (or negligible amount), we're done
+                        estado_actual = ESTADO_TERMINADO;
+                        SendDebugMessage("Movement complete - no X movement needed");
+                    } else {
+                        // Prepare to turn for X movement
+                        estado_actual = ESTADO_GIRANDO;
+                        
+                        // Reset any existing turning variables to ensure clean start
+                        static bool* angle_set_ptr = NULL;
+                        // Find and reset the angle_set variable from ESTADO_GIRANDO
+                        if (angle_set_ptr != NULL) {
+                            *angle_set_ptr = false;
+                        }
+                        
+                        SendDebugMessage("Y movement complete, preparing to turn for X");
+                        sprintf(debug_text, "X movement required: %d units", target_x);
+                        SendDebugMessage(debug_text);
+                    }
+                } else {
+                    // Check if we need to add a safety timeout
+                    static int movement_timeout = 0;
+                    movement_timeout++;
+                    
+                    // Force stop after excessive movement time (approx. 5 seconds)
+                    if (movement_timeout > 500) {
+                        MotorControl(0, 0);
+                        SendDebugMessage("Safety timeout - Y movement took too long");
+                        movement_timeout = 0;
+                        
+                        // Even with timeout, proceed with X movement if needed
+                        if (abs(target_x) < 1) {
+                            estado_actual = ESTADO_TERMINADO;
+                        } else {
+                            estado_actual = ESTADO_GIRANDO;
+                        }
+                    }
+                }
+                break;
+                case ESTADO_GIRANDO:
+                {
+                    // Velocidad para el giro
+                    const int VELOCIDAD_GIRO = MOTOR_SPEED*0.9;
+                    
+                    // Tiempo para completar el giro de 90 grados
+                    static int giro_contador = 0;
+                    static bool giro_iniciado = false;
+                    static float GIRO_DURACION = 18.5;  // Ajustable (puede necesitar aumentarse)
+                    
+                    // Primera vez en este estado
+                    if (!giro_iniciado) {
+                        giro_contador = 0;
+                        giro_iniciado = true;
+                        SendDebugMessage("Iniciando giro con una rueda estática real");
+                    }
+                    
+                    // Ejecutar el giro por tiempo fijo
+                    if (giro_contador < GIRO_DURACION) {
+                        // IMPORTANTE: No usar MotorControl() para el giro
+                        
+                        // Primero detener ambos motores
+                        GPIOD->ODR &= ~((1 << 0) | (1 << 1) | (1 << 6) | (1 << 7));
+                        
+                        if (target_x >= 0) {
+                            // Girar derecha: solo motor izquierdo hacia adelante
+                            GPIOD->ODR &= ~(1 << 6);  // PD6 low
+                            GPIOD->ODR |= (1 << 7);   // PD7 high
+                            // Motor derecho completamente apagado (ya está por el clear anterior)
+                        } else {
+                            // Girar izquierda: solo motor derecho hacia adelante
+                            GPIOD->ODR |= (1 << 1);   // PD1 high
+                            GPIOD->ODR &= ~(1 << 0);  // PD0 low
+                            // Motor izquierdo completamente apagado (ya está por el clear anterior)
+                        }
+                        
+                        // Activar el PWM con la velocidad deseada
+                        TIM5->CCR1 = VELOCIDAD_GIRO;
+                        
+                        giro_contador++;
+                        
+                        // Mostrar mensaje de depuración ocasionalmente
+                        if (giro_contador % 5 == 0) {
+                            sprintf(debug_text, "Girando: %d/%d, Yaw=%.1f", 
+                                    giro_contador, (int)GIRO_DURACION, yaw);
+                            SendDebugMessage(debug_text);
+                        }
+                    } else {
+                        // Giro completado - apagar motores completamente
+                        GPIOD->ODR &= ~((1 << 0) | (1 << 1) | (1 << 6) | (1 << 7));
+                        TIM5->CCR1 = 0;
+                        
+                        SendDebugMessage("Giro completado por tiempo fijo");
+                        sprintf(debug_text, "Ángulo final: %.1f grados", yaw);
+                        SendDebugMessage(debug_text);
+                        
+                        // Pausa breve para estabilizar
+                        SysTick_ms(100);
+                        
+                        // Reiniciar variables para el próximo giro
+                        giro_iniciado = false;
+                        
+                        // Preparar para movimiento en eje X
+                        ResetReferencePositions();
+                        estado_actual = ESTADO_AVANZANDO_X;
+                        
+                        // Actualizar LCD
+                        UpdateLCD(0, target_y, yaw);
+                    }
+                }
+                break;
+                  case ESTADO_AVANZANDO_X:
+                // Move along X axis
+                if (MoveDistance(abs((int)(target_x * TICK_FACTOR)))) {
+                    // X movement complete
+                    MotorControl(0, 0);  // Ensure motors are stopped
+                    SendDebugMessage("X movement completed, stopping motors");
+                    estado_actual = ESTADO_TERMINADO;
+                    SendDebugMessage("Movement complete - destination reached");
+                } else {
+                    // Safety timeout for X movement
+                    static int x_movement_timeout = 0;
+                    x_movement_timeout++;
+                    
+                    // Force stop after excessive movement time (approx. 5 seconds)
+                    if (x_movement_timeout > 500) {
+                        MotorControl(0, 0);
+                        SendDebugMessage("Safety timeout - X movement took too long");
+                        x_movement_timeout = 0;
+                        estado_actual = ESTADO_TERMINADO;
+                    }
+                }
+                break;
+                
+            case ESTADO_TERMINADO:
+                // Mission complete
+                MotorControl(0, 0);
+                LCD_SetCursor(0, 0);
+                LCD_Print("Posicion Final:");
+                sprintf(debug_text, "X=%d, Y=%d    ", target_x, target_y);
+                LCD_SetCursor(1, 0);
+                LCD_Print(debug_text);
+                
+                // Return to ESTADO_DETENIDO after a delay
+                SysTick_ms(2000);
+                estado_actual = ESTADO_DETENIDO;
+                  // Show regular coordinates display
+                UpdateLCD(target_x, target_y, yaw);
+                break;
