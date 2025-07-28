@@ -176,7 +176,7 @@ class WeatherStation(QMainWindow):
         self.adc_plot1 = self.create_plot("ADC1 Voltage", "Time", "Voltage (V)")
         self.adc_plot2 = self.create_plot("ADC2 Voltage", "Time", "Voltage (V)")
         self.gauge_widget, self.gauge_bar = self.create_gauge("ADC3 Percentage")
-        self.freq_gauge, self.freq_bar = self.create_gauge("Frequency %")
+        self.freq_gauge, self.freq_bar = self.create_gauge("Humedad %")
 
         # Graphs widget
         graphs_widget = QWidget()
@@ -251,7 +251,7 @@ class WeatherStation(QMainWindow):
         freq_container = QWidget()
         freq_layout = QVBoxLayout(freq_container)
         freq_layout.addWidget(self.freq_gauge)
-        self.freq_value_label = QLabel("Frequency: 0.0 Hz")
+        self.freq_value_label = QLabel("humedad 0.0 Hz")
         self.freq_value_label.setStyleSheet("""
             color: #00ff00;
             font-family: 'Ubuntu Mono';
@@ -405,7 +405,7 @@ class WeatherStation(QMainWindow):
     def connect_bluetooth(self):
         if self.serial_port is None:
             try:
-                self.serial_port = serial.Serial('/dev/ttyACM0 ', 9600)
+                self.serial_port = serial.Serial('/dev/rfcomm0 ', 9600)
                 self.bluetooth_button.setText("Desconectar Bluetooth")
                 self.connect_button.setEnabled(False)
                 self.usb0_button.setEnabled(False)
@@ -546,7 +546,7 @@ class WeatherStation(QMainWindow):
                         freq = extract_number(line.split(":")[1])
                         freq_percentage = min((freq / 65000.0) * 100, 100)
                         self.freq_bar.setOpts(height=[freq_percentage])
-                        self.freq_value_label.setText(f"Frequency: {freq:.1f} Hz")
+                        self.freq_value_label.setText(f"Humedad: {freq:.1f} ")
                     except Exception as e:
                         print(f"Error processing Freq: {e}")
                     
