@@ -13,7 +13,7 @@ from matrix_rain import MatrixRain
 
 class WeatherStation(QMainWindow):
     # Constante privada para el nombre
-    __LEONARDO_NAME = "• Leonardo Montealegre - Aveces duerme"
+    __LEONARDO_NAME = "• Santiago Chaparro - rs232 developer"
     
     def __init__(self):
         super().__init__()
@@ -95,12 +95,13 @@ class WeatherStation(QMainWindow):
         team_members = [
             "• Daniel García Araque - Ingeniero de Software",
             self.__LEONARDO_NAME,  # Usando la constante protegida
-            "• Andrés Fonseca Neme - Ingeniero electrónico"
+            "• Santiago garcía - Ingeniero Electrónico",
+            "• Julian rosas - Backend Developer",
         ]
         
         for member in team_members:
             member_label = QLabel(member)
-            member_label.setFont(QFont('Ubuntu', 16, QFont.Weight.Bold))
+            member_label.setFont(QFont('Ubuntu', 10, QFont.Weight.Bold))
             member_label.setStyleSheet("""
                 color: #00ff00;
                 font-weight: bold;
@@ -129,19 +130,18 @@ class WeatherStation(QMainWindow):
         
         # COM port selection
         self.port_combo = QComboBox()
-        self.update_ports()
         serial_layout.addWidget(QLabel("Port:"))
         serial_layout.addWidget(self.port_combo)
         
         # USB0 direct connect button
-        self.usb0_button = QPushButton("Conectar por Cable (USB0)")
+        self.usb0_button = QPushButton("Conectar puerto")
         self.usb0_button.clicked.connect(self.connect_usb0)
         serial_layout.addWidget(self.usb0_button)
         
-        # Bluetooth connect button
-        self.bluetooth_button = QPushButton("Conectar Bluetooth")
-        self.bluetooth_button.clicked.connect(self.connect_bluetooth)
-        serial_layout.addWidget(self.bluetooth_button)
+        # Bluetooth connect button - Commented out
+        # self.bluetooth_button = QPushButton("Conectar Bluetooth")
+        # self.bluetooth_button.clicked.connect(self.connect_bluetooth)
+        # serial_layout.addWidget(self.bluetooth_button)
         
         # Baud rate (fixed at 9600)
         baud_label = QLabel("Baud Rate: 9600")
@@ -156,6 +156,9 @@ class WeatherStation(QMainWindow):
         self.dark_mode_button = QPushButton("Dark Mode")
         self.dark_mode_button.clicked.connect(self.toggle_dark_mode)
         serial_layout.addWidget(self.dark_mode_button)
+        
+        # Now update ports after all buttons are created
+        self.update_ports()
         
         layout.addWidget(serial_widget)
         
@@ -172,104 +175,39 @@ class WeatherStation(QMainWindow):
         self.clock_timer.start(1000)  # Update every second
         self.update_clock()  # Initial update
         
-        # Create all plots and gauges first
-        self.adc_plot1 = self.create_plot("ADC1 Voltage", "Time", "Voltage (V)")
-        self.adc_plot2 = self.create_plot("ADC2 Voltage", "Time", "Voltage (V)")
-        self.gauge_widget, self.gauge_bar = self.create_gauge("ADC3 Percentage")
-        self.freq_gauge, self.freq_bar = self.create_gauge("Humedad %")
+        # Add sensor selection buttons
+        sensor_buttons_widget = QWidget()
+        sensor_buttons_layout = QHBoxLayout(sensor_buttons_widget)
+        
+        self.sensor_buttons = []
+        for i, name in enumerate(["Temperature", "Wind Speed", "Light", "Humidity"]):
+            btn = QPushButton(name)
+            btn.setCheckable(True)
+            btn.clicked.connect(lambda checked, idx=i: self.show_sensor(idx))
+            self.sensor_buttons.append(btn)
+            sensor_buttons_layout.addWidget(btn)
+        
+        self.sensor_buttons[0].setChecked(True)  # Temperature selected by default
+        layout.addWidget(sensor_buttons_widget)
 
-        # Graphs widget
-        graphs_widget = QWidget()
-        graphs_layout = QHBoxLayout(graphs_widget)
+        # Create container for graphs
+        self.graphs_container = QWidget()
+        self.graphs_layout = QVBoxLayout(self.graphs_container)
         
-        # ADC plots section (70% del ancho)
-        plots_layout = QVBoxLayout()
-        
-        # ADC1 plot y valor
-        adc1_container = QWidget()
-        adc1_layout = QVBoxLayout(adc1_container)
-        adc1_layout.addWidget(self.adc_plot1)
-        self.adc1_value_label = QLabel("ADC1: 0.00V")
-        self.adc1_value_label.setStyleSheet("""
-            color: #00ff00;
-            font-family: 'Ubuntu Mono';
-            font-size: 16px;
-            font-weight: bold;
-            padding: 5px;
-            background-color: #1a1a1a;
-            border: 1px solid #00ff00;
-            border-radius: 5px;
-        """)
-        self.adc1_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        adc1_layout.addWidget(self.adc1_value_label)
-        plots_layout.addWidget(adc1_container)
-        
-        # ADC2 plot y valor
-        adc2_container = QWidget()
-        adc2_layout = QVBoxLayout(adc2_container)
-        adc2_layout.addWidget(self.adc_plot2)
-        self.adc2_value_label = QLabel("ADC2: 0.00V")
-        self.adc2_value_label.setStyleSheet("""
-            color: #00ff00;
-            font-family: 'Ubuntu Mono';
-            font-size: 16px;
-            font-weight: bold;
-            padding: 5px;
-            background-color: #1a1a1a;
-            border: 1px solid #00ff00;
-            border-radius: 5px;
-        """)
-        self.adc2_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        adc2_layout.addWidget(self.adc2_value_label)
-        plots_layout.addWidget(adc2_container)
+        # Create all plots and gauges
+        self.adc_plot1 = self.create_plot("Temperature", "Time", "°C")
+        self.adc_plot2 = self.create_plot("Wind Speed", "Time", "km/h")
+        self.gauge_widget, self.gauge_bar = self.create_gauge("Light Intensity")
+        self.adc4_gauge, self.adc4_bar = self.create_gauge("Humidity")
 
-        graphs_layout.addLayout(plots_layout, stretch=70)
+        # Initialize with only temperature plot visible
+        self.graphs_layout.addWidget(self.adc_plot1)
+        self.adc_plot2.hide()
+        self.gauge_widget.hide()
+        self.adc4_gauge.hide()
         
-        # Gauges layout con valores
-        gauges_layout = QVBoxLayout()
-        
-        # ADC3 gauge y valor
-        adc3_container = QWidget()
-        adc3_layout = QVBoxLayout(adc3_container)
-        adc3_layout.addWidget(self.gauge_widget)
-        self.adc3_value_label = QLabel("ADC3: 0.00V")
-        self.adc3_value_label.setStyleSheet("""
-            color: #00ff00;
-            font-family: 'Ubuntu Mono';
-            font-size: 16px;
-            font-weight: bold;
-            padding: 5px;
-            background-color: #1a1a1a;
-            border: 1px solid #00ff00;
-            border-radius: 5px;
-        """)
-        self.adc3_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        adc3_layout.addWidget(self.adc3_value_label)
-        gauges_layout.addWidget(adc3_container)
-        
-        # Frequency gauge y valor
-        freq_container = QWidget()
-        freq_layout = QVBoxLayout(freq_container)
-        freq_layout.addWidget(self.freq_gauge)
-        self.freq_value_label = QLabel("humedad 0.0 Hz")
-        self.freq_value_label.setStyleSheet("""
-            color: #00ff00;
-            font-family: 'Ubuntu Mono';
-            font-size: 16px;
-            font-weight: bold;
-            padding: 5px;
-            background-color: #1a1a1a;
-            border: 1px solid #00ff00;
-            border-radius: 5px;
-        """)
-        self.freq_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        freq_layout.addWidget(self.freq_value_label)
-        gauges_layout.addWidget(freq_container)
+        layout.addWidget(self.graphs_container)
 
-        graphs_layout.addLayout(gauges_layout, stretch=30)
-        
-        layout.addWidget(graphs_widget)
-        
         # Data arrays
         self.timestamps = np.linspace(0, 100, 100)
         self.adc1_data = np.zeros(100)
@@ -339,7 +277,7 @@ class WeatherStation(QMainWindow):
             self.adc_plot1.setBackground('k')
             self.adc_plot2.setBackground('k')
             self.gauge_widget.setBackground('k')
-            self.freq_gauge.setBackground('k')
+            self.adc4_gauge.setBackground('k')
             
         else:
             self.dark_mode_button.setText("Dark Mode")
@@ -354,7 +292,7 @@ class WeatherStation(QMainWindow):
             self.adc_plot1.setBackground('w')
             self.adc_plot2.setBackground('w')
             self.gauge_widget.setBackground('w')
-            self.freq_gauge.setBackground('w')
+            self.adc4_gauge.setBackground('w')
         
         app.setPalette(palette)
         # Update clock color
@@ -367,15 +305,24 @@ class WeatherStation(QMainWindow):
         plot.setLabel('left', y_label, color='#00ff00')
         plot.setLabel('bottom', x_label, color='#00ff00')
         plot.showGrid(x=True, y=True, alpha=0.3)
-        # Configurar rangos específicos para cada gráfica
-        if title == "ADC1 Voltage":
+
+        # Add value label to the plot
+        value_label = pg.TextItem(text="", color='#00ff00', anchor=(0, 0))
+        value_label.setPos(10, 10)  # Position in plot coordinates
+        plot.addItem(value_label)
+
+        # Store reference to value label
+        plot.value_label = value_label
+
+        # Configure specific plot settings
+        if title == "Temperature":
             plot.addLegend()
-            plot.setYRange(0, 100)  # Rango para temperatura en Celsius
+            plot.setYRange(0, 100)
             plot.setTitle("Temperature (°C)", color='#00ff00')
             plot.setLabel('left', "Temperature (°C)", color='#00ff00')
-        elif title == "ADC2 Voltage":
+        elif title == "Wind Speed":
             plot.addLegend()
-            plot.setYRange(0, 200)  # Rango para velocidad del viento en km/h
+            plot.setYRange(0, 200)
             plot.setTitle("Wind Speed (km/h)", color='#00ff00')
             plot.setLabel('left', "Wind Speed (km/h)", color='#00ff00')
         return plot
@@ -397,30 +344,82 @@ class WeatherStation(QMainWindow):
         return gauge, bar
 
     def update_ports(self):
+        """Update the available COM ports"""
+        current = self.port_combo.currentText()
         self.port_combo.clear()
-        ports = [port.device for port in serial.tools.list_ports.comports()]
-        self.port_combo.addItems(ports)
         
-    #change the bluethoot COM  port    
-    def connect_bluetooth(self):
+        # Get list of COM ports
+        ports = []
+        for port in serial.tools.list_ports.comports():
+            ports.append(port.device)
+        
+        if not ports:  # If no ports available
+            self.port_combo.addItem("No ports available")
+            self.connect_button.setEnabled(False)
+        else:
+            self.port_combo.addItems(ports)
+            self.connect_button.setEnabled(True)
+            # Restore previous selection if still available
+            if current in ports:
+                self.port_combo.setCurrentText(current)
+
+    def toggle_connection(self):
+        """Connect/Disconnect from selected COM port"""
         if self.serial_port is None:
             try:
-                self.serial_port = serial.Serial('/dev/rfcomm0 ', 9600)
-                self.bluetooth_button.setText("Desconectar Bluetooth")
-                self.connect_button.setEnabled(False)
-                self.usb0_button.setEnabled(False)
+                port = self.port_combo.currentText()
+                if port == "No ports available":
+                    return
+                    
+                self.serial_port = serial.Serial(
+                    port=port,
+                    baudrate=9600,
+                    bytesize=serial.EIGHTBITS,
+                    parity=serial.PARITY_NONE,
+                    stopbits=serial.STOPBITS_ONE,
+                    timeout=1
+                )
+                
+                self.connect_button.setText("Disconnect")
                 self.port_combo.setEnabled(False)
+                self.usb0_button.setEnabled(False)
+                # self.bluetooth_button.setEnabled(False)
                 self.update_timer.start(100)
             except Exception as e:
-                print(f"Error connecting to Bluetooth: {e}")
+                print(f"Connection error: {str(e)}")
         else:
-            self.serial_port.close()
-            self.serial_port = None
-            self.bluetooth_button.setText("Conectar Bluetooth")
-            self.connect_button.setEnabled(True)
-            self.usb0_button.setEnabled(True)
-            self.port_combo.setEnabled(True)
-            self.update_timer.stop()
+            try:
+                self.update_timer.stop()
+                self.serial_port.close()
+                self.serial_port = None
+                self.connect_button.setText("Connect")
+                self.port_combo.setEnabled(True)
+                self.usb0_button.setEnabled(True)
+                # self.bluetooth_button.setEnabled(True)
+            except Exception as e:
+                print(f"Disconnection error: {str(e)}")
+
+    def connect_bluetooth(self):
+        """Commented out Bluetooth functionality"""
+        pass
+        # if self.serial_port is None:
+        #     try:
+        #         self.serial_port = serial.Serial('/dev/rfcomm0 ', 9600)
+        #         self.bluetooth_button.setText("Desconectar Bluetooth")
+        #         self.connect_button.setEnabled(False)
+        #         self.usb0_button.setEnabled(False)
+        #         self.port_combo.setEnabled(False)
+        #         self.update_timer.start(100)
+        #     except Exception as e:
+        #         print(f"Error connecting to Bluetooth: {e}")
+        # else:
+        #     self.serial_port.close()
+        #     self.serial_port = None
+        #     self.bluetooth_button.setText("Conectar Bluetooth")
+        #     self.connect_button.setEnabled(True)
+        #     self.usb0_button.setEnabled(True)
+        #     self.port_combo.setEnabled(True)
+        #     self.update_timer.stop()
 
     def connect_usb0(self):
         if self.serial_port is None:
@@ -428,7 +427,7 @@ class WeatherStation(QMainWindow):
                 self.serial_port = serial.Serial('/dev/ttyUSB0', 9600)
                 self.usb0_button.setText("Desconectar USB0")
                 self.connect_button.setEnabled(False)
-                self.bluetooth_button.setEnabled(False)  # Deshabilitar botón Bluetooth
+                # self.bluetooth_button.setEnabled(False)  # Deshabilitar botón Bluetooth
                 self.port_combo.setEnabled(False)
                 self.update_timer.start(100)
             except Exception as e:
@@ -436,26 +435,9 @@ class WeatherStation(QMainWindow):
         else:
             self.serial_port.close()
             self.serial_port = None
-            self.usb0_button.setText("Conectar por Cable (USB0)")
+            self.usb0_button.setText("Conectar puerto)")
             self.connect_button.setEnabled(True)
             self.port_combo.setEnabled(True)
-            self.update_timer.stop()
-
-    def toggle_connection(self):
-        if self.serial_port is None:
-            try:
-                port = self.port_combo.currentText()
-                self.serial_port = serial.Serial(port, 9600)
-                self.connect_button.setText("Disconnect")
-                self.usb0_button.setEnabled(False)
-                self.update_timer.start(100)
-            except Exception as e:
-                print(f"Error: {e}")
-        else:
-            self.serial_port.close()
-            self.serial_port = None
-            self.connect_button.setText("Connect")
-            self.usb0_button.setEnabled(True)
             self.update_timer.stop()
 
     def update_plots(self):
@@ -493,6 +475,8 @@ class WeatherStation(QMainWindow):
                         self.adc1_data[-1] = avg_temperature
                         self.adc1_curve.setData(self.timestamps, self.adc1_data)
                         self.adc1_value_label.setText(f"Temperature: {avg_temperature:.1f}°C")
+                        # Update plot value label
+                        self.adc_plot1.value_label.setText(f"Current: {avg_temperature:.1f}°C")
                         print(f"Debug - ADC1 voltage: {voltage:.2f}V, Avg Temp: {avg_temperature:.1f}°C")
                     except Exception as e:
                         print(f"Error processing ADC1: {e}")
@@ -525,6 +509,8 @@ class WeatherStation(QMainWindow):
                         self.adc2_data[-1] = wind_speed
                         self.adc2_curve.setData(self.timestamps, self.adc2_data)
                         self.adc2_value_label.setText(f"Wind: {wind_speed:.1f} km/h")
+                        # Update plot value label
+                        self.adc_plot2.value_label.setText(f"Current: {wind_speed:.1f} km/h")
                         print(f"Debug - ADC2 voltage: {voltage:.2f}V, Wind: {wind_speed:.1f} km/h")
                     except Exception as e:
                         print(f"Error processing ADC2: {e}")
@@ -541,18 +527,51 @@ class WeatherStation(QMainWindow):
                     except Exception as e:
                         print(f"Error processing ADC3: {e}")
                     
-                elif line.startswith("Freq:"):
+                elif line.startswith("ADC4:"):  # Changed from Freq:
                     try:
-                        freq = extract_number(line.split(":")[1])
-                        freq_percentage = min((freq / 65000.0) * 100, 100)
-                        self.freq_bar.setOpts(height=[freq_percentage])
-                        self.freq_value_label.setText(f"Humedad: {freq:.1f} ")
+                        voltage = extract_number(line.split(":")[1])
+                        # Convert voltage to humidity percentage
+                        humidity = (voltage / 3.3) * 100  # Adjust conversion as needed
+                        humidity = max(0, min(100, humidity))
+                        self.adc4_bar.setOpts(height=[humidity])
+                        self.adc4_value_label.setText(f"Humidity: {humidity:.1f}%")
                     except Exception as e:
-                        print(f"Error processing Freq: {e}")
+                        print(f"Error processing ADC4: {e}")
                     
             except Exception as e:
                 print(f"Error parsing data: {e}")
                 print(f"Problematic line: {line}")  # Debug
+
+    def show_sensor(self, index):
+        # Update button states
+        for i, btn in enumerate(self.sensor_buttons):
+            btn.setChecked(i == index)
+        
+        # Remove all widgets from layout
+        while self.graphs_layout.count():
+            item = self.graphs_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        # Hide all graphs
+        self.adc_plot1.hide()
+        self.adc_plot2.hide()
+        self.gauge_widget.hide()
+        self.adc4_gauge.hide()
+        
+        # Show selected graph and add to layout
+        if index == 0:
+            self.graphs_layout.addWidget(self.adc_plot1)
+            self.adc_plot1.show()
+        elif index == 1:
+            self.graphs_layout.addWidget(self.adc_plot2)
+            self.adc_plot2.show()
+        elif index == 2:
+            self.graphs_layout.addWidget(self.gauge_widget)
+            self.gauge_widget.show()
+        elif index == 3:
+            self.graphs_layout.addWidget(self.adc4_gauge)
+            self.adc4_gauge.show()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

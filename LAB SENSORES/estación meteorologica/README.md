@@ -41,3 +41,56 @@
 ## Frecuencias por defecto:
 - DAC1: `frec1` = 100.0 Hz (inicial)
 - DAC2: `frec2` = 50.0 Hz (inicial)
+
+# Weather Station UART Communication Protocol
+
+## Overview
+The weather station uses UART communication at 9600 baud rate to transmit sensor data from the microcontroller to the GUI application.
+
+## Data Format
+Each sensor reading is sent as a separate line with the following format:
+
+Where:
+- `x` is the ADC channel number (1-4)
+- `Y.YY` is the voltage reading with 2 decimal places
+- `\n` is the newline character
+
+## Sensor Mappings
+
+1. **ADC1: Temperature Sensor**
+   - Format: `ADC1: Y.YYV`
+   - Conversion: Temperature(°C) = 55.60 * voltage + 0.367 + 13
+   - Range: 0-100°C
+
+2. **ADC2: Wind Speed Sensor**
+   - Format: `ADC2: Y.YYV`
+   - Conversion: Speed(km/h) = 58.943 * voltage + 2.037
+   - Range: 0-200 km/h
+
+3. **ADC3: Light Intensity Sensor**
+   - Format: `ADC3: Y.YYV`
+   - Conversion: Intensity(%) = -45.45 * voltage + 100
+   - Range: 0-100%
+
+4. **ADC4: Humidity Sensor**
+   - Format: `ADC4: Y.YYV`
+   - Conversion: Humidity(%) = (voltage / 3.3) * 100
+   - Range: 0-100%
+
+
+
+
+  ## Example Data Stream
+  ADC1: 1.23V ADC2: 2.50V ADC3: 1.50V ADC4: 2.75V
+
+## Error Handling
+- Invalid data is ignored
+- Out of range values are clamped to valid ranges
+- Debug messages are printed to console for troubleshooting
+
+## Connection Settings
+- Baud Rate: 9600
+- Data Bits: 8
+- Parity: None
+- Stop Bits: 1
+- Flow Control: None
