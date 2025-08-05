@@ -15,6 +15,14 @@ class WeatherStation(QMainWindow):
     # Constante privada para el nombre
     __LEONARDO_NAME = "• Santiago Chaparro - rs232 developer"
     
+    # Add sensor codes
+    __SENSOR_CODES = {
+        0: b'\x00',  # Temperature - 00
+        1: b'\x01',  # Wind Speed - 01
+        2: b'\x02',  # Light - 10
+        3: b'\x03'   # Humidity - 11
+    }
+    
     def __init__(self):
         super().__init__()
         self.dark_mode = True  # Iniciar en modo oscuro
@@ -546,6 +554,14 @@ class WeatherStation(QMainWindow):
         # Update button states
         for i, btn in enumerate(self.sensor_buttons):
             btn.setChecked(i == index)
+        
+        # Send binary code if connected
+        if self.serial_port and self.serial_port.is_open:
+            try:
+                self.serial_port.write(self.__SENSOR_CODES[index])
+                print(f"Sent sensor code: {bin(ord(self.__SENSOR_CODES[index]))}")
+            except Exception as e:
+                print(f"Error sending sensor code: {e}")
         
         # Remove all widgets from layout
         while self.graphs_layout.count():
